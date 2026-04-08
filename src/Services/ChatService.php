@@ -16,8 +16,8 @@ class ChatService
     public function getUserDialogues(int $userId): array
     {
         $sql = "SELECT d.*, 
-                (SELECT content FROM messages WHERE dialogue_id = d.id ORDER BY created_at DESC LIMIT 1) as last_message,
-                (SELECT created_at FROM messages WHERE dialogue_id = d.id ORDER BY created_at DESC LIMIT 1) as last_message_time
+                (SELECT content FROM messages WHERE dialogue_id = d.id AND is_deleted = FALSE ORDER BY created_at DESC LIMIT 1) as last_message,
+                (SELECT created_at FROM messages WHERE dialogue_id = d.id AND is_deleted = FALSE ORDER BY created_at DESC LIMIT 1) as last_message_time
                 FROM dialogues d
                 INNER JOIN dialogue_users du ON d.id = du.dialogue_id
                 WHERE du.user_id = :user_id
@@ -46,7 +46,7 @@ class ChatService
         $sql = "SELECT m.*, u.name as user_name, u.avatar
                 FROM messages m
                 INNER JOIN users u ON m.user_id = u.id
-                WHERE m.dialogue_id = :dialogue_id AND m.is_deleted = 0
+                WHERE m.dialogue_id = :dialogue_id AND m.is_deleted = FALSE
                 ORDER BY m.created_at ASC
                 LIMIT 100";
 
@@ -60,8 +60,8 @@ class ChatService
 
     public function sendMessage(int $dialogueId, int $userId, string $content): ?int
     {
-        $sql = "INSERT INTO messages (dialogue_id, user_id, content, created_at) 
-                VALUES (:dialogue_id, :user_id, :content, NOW())";
+        $sql = "INSERT INTO messages (dialogue_id, user_id, content, created_at, is_deleted) 
+                VALUES (:dialogue_id, :user_id, :content, NOW(), FALSE)";
 
         $this->db->execute($sql, [
             'dialogue_id' => $dialogueId,
@@ -83,7 +83,7 @@ class ChatService
     public function deleteMessage(int $messageId, int $userId): bool
     {
         // Проверяем, что пользователь является автором сообщения
-        $sql = "SELECT user_id FROM messages WHERE id = :id";
+        $sql = "SELECT user_id FROM messages WHERE id = :id AND is_deleted = FALSE";
         $message = $this->db->fetchOne($sql, ['id' => $messageId]);
 
         if (!$message || $message['user_id'] != $userId) {
@@ -91,7 +91,7 @@ class ChatService
         }
 
         return $this->db->execute(
-            "UPDATE messages SET is_deleted = 1 WHERE id = :id",
+            "UPDATE messages SET is_deleted = TRUE WHERE id = :id",
             ['id' => $messageId]
         );
     }

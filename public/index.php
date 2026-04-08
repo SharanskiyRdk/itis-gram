@@ -1,31 +1,36 @@
 <?php
 
-declare(strict_types=1);
+require_once __DIR__ . '/../helpers.php';
+
+use App\Routing\Router;
+use App\Core\Config;
+use App\Core\Logger;
+
+if (session_status() == PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
 
 session_start();
-
-// Загрузка переменных окружения
-if (file_exists(__DIR__ . '/../.env')) {
-    $lines = file(__DIR__ . '/../.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (str_starts_with(trim($line), '#')) continue;
-        list($key, $value) = explode('=', $line, 2);
-        $_ENV[$key] = $value;
-        putenv("$key=$value");
-    }
-}
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-require_once __DIR__ . '/../autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 
-use App\Routing\Router;
+try {
+    $config = new Config(__DIR__ . '/../.env');
+} catch (Throwable $e) {
+    Logger::error($e->getMessage(), 'EXCEPTION');
+    echo 'Ошибка загрузки конфигурации';
+    session_abort();
+}
 
 $router = new Router();
 
-$loadRoutes = require __DIR__ . '/../routes.php';
-$loadRoutes($router);
+$routes = require __DIR__ . '/../routes.php';
+$routes($router);
 
-$router->dispatch($_SERVER['REQUEST_URI'], $_SERVER['REQUEST_METHOD']);
+$method = $_SERVER['REQUEST_METHOD'];
+$uri = $_SERVER['REQUEST_URI'];
+$router->dispatch($uri, $method);

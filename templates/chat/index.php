@@ -4,7 +4,7 @@
 
         <div class="chat-list__actions">
             <form method="POST" action="/chat/create" class="form form--inline">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
+                <?= csrf_field() ?>
                 <input type="text" name="title" placeholder="Название группового чата" maxlength="255">
                 <button type="submit">Создать групповой чат</button>
             </form>

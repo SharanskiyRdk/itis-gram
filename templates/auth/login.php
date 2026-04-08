@@ -7,7 +7,7 @@
         <?php endif; ?>
 
         <form method="POST" action="/login" class="form">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
+            <?= csrf_field() ?>
 
             <label>
                 Email

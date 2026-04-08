@@ -2,11 +2,12 @@
 
 namespace App\Controllers;
 
+use JetBrains\PhpStorm\NoReturn;
+
 abstract class AbstractController
 {
     protected function render(string $view, array $data = []): void
     {
-        $data['csrf_token'] = $this->csrfToken();
         extract($data);
 
         $viewFile = __DIR__ . '/../../templates/' . $view . '.php';
@@ -19,6 +20,7 @@ abstract class AbstractController
         echo 'View not found: ' . $view;
     }
 
+    #[NoReturn]
     protected function json(array $data, int $statusCode = 200): void
     {
         http_response_code($statusCode);
@@ -27,6 +29,7 @@ abstract class AbstractController
         exit;
     }
 
+    #[NoReturn]
     protected function redirect(string $path): void
     {
         header('Location: ' . $path);

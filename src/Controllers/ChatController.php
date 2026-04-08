@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Services\ChatService;
+use JetBrains\PhpStorm\NoReturn;
 
 class ChatController extends AbstractController
 {
@@ -87,6 +88,7 @@ class ChatController extends AbstractController
         }
     }
 
+    #[NoReturn]
     public function send(): void
     {
         $this->verifyCsrf();

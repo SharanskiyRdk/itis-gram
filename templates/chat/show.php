@@ -5,7 +5,7 @@
         <div class="messages" id="messages-container">
             <?php if (!empty($messages)): ?>
                 <?php foreach ($messages as $message): ?>
-                    <article class="message <?= $message['user_id'] == $currentUserId() ? 'message--mine' : '' ?>">
+                    <article class="message <?= $message['user_id'] == currentUserId() ? 'message--mine' : '' ?>">
                         <div class="message__meta">
                             <?= htmlspecialchars($message['user_name'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?> ·
                             <?= date('H:i', strtotime($message['created_at'])) ?>
@@ -21,7 +21,7 @@
         </div>
 
         <form method="POST" action="/chat/send" class="message-form" id="message-form">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
+            <?= csrf_field() ?>
             <input type="hidden" name="dialogue_id" value="<?= htmlspecialchars((string)($dialogue_id ?? 1), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
             <textarea name="content" rows="3" maxlength="4000" placeholder="Введите сообщение..." required></textarea>
             <button type="submit">Отправить</button>
@@ -54,4 +54,12 @@
             }
         });
     </script>
+
+<?php
+$content = ob_get_clean();
+$title = 'Чат';
+$scripts = ['/js/chat.js'];
+require __DIR__ . '/../layout.php';
+?>
+
 <?php $content = ob_get_clean(); $title = 'Чат'; require __DIR__ . '/../layout.php'; ?>

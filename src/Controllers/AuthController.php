@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\User;
 use App\Services\AuthService;
+use JetBrains\PhpStorm\NoReturn;
 
 class AuthController extends AbstractController
 {
@@ -105,6 +106,7 @@ class AuthController extends AbstractController
         $this->redirect('/');
     }
 
+    #[NoReturn]
     public function logout(): void
     {
         $this->verifyCsrf();

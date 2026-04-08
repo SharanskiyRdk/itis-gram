@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Services\ProfileService;
+use JetBrains\PhpStorm\NoReturn;
 
 class ProfileController extends AbstractController
 {
@@ -32,6 +33,7 @@ class ProfileController extends AbstractController
         $this->render('profile/edit', ['user' => $user]);
     }
 
+    #[NoReturn]
     public function update(): void
     {
         $this->verifyCsrf();
@@ -64,6 +66,7 @@ class ProfileController extends AbstractController
         }
     }
 
+    #[NoReturn]
     public function avatar(): void
     {
         $this->verifyCsrf();
@@ -76,35 +79,28 @@ class ProfileController extends AbstractController
 
         $file = $_FILES['avatar'];
 
-        if ($file['error'] !== UPLOAD_ERR_OK) {
-            $this->json(['error' => 'Ошибка загрузки файла'], 400);
-            return;
+        // Загружаем аватар через сервис
+        $avatarPath = $this->profileService->updateAvatar($this->currentUserId(), $file);
+
+        if ($avatarPath) {
+            $this->json(['success' => true, 'avatar_url' => $avatarPath]);
+        } else {
+            $this->json(['error' => 'Не удалось загрузить аватар. Проверьте формат и размер файла (макс. 5MB, JPEG, PNG, WebP)'], 422);
         }
+    }
 
-        if ($file['size'] > 5 * 1024 * 1024) {
-            $this->json(['error' => 'Аватар слишком большой (макс. 5MB)'], 422);
-            return;
-        }
+    #[NoReturn]
+    public function deleteAvatar(): void
+    {
+        $this->verifyCsrf();
+        $this->requireAuth();
 
-        $allowed = ['image/jpeg', 'image/png', 'image/webp'];
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime = finfo_file($finfo, $file['tmp_name']);
-        finfo_close($finfo);
-
-        if (!in_array($mime, $allowed, true)) {
-            $this->json(['error' => 'Недопустимый формат. Используйте JPEG, PNG или WebP'], 422);
-            return;
-        }
-
-        $result = $this->profileService->updateAvatar(
-            $this->currentUserId(),
-            $file
-        );
+        $result = $this->profileService->deleteAvatar($this->currentUserId());
 
         if ($result) {
-            $this->json(['success' => true, 'avatar_url' => $result]);
+            $this->json(['success' => true]);
         } else {
-            $this->json(['error' => 'Не удалось загрузить аватар'], 500);
+            $this->json(['error' => 'Не удалось удалить аватар'], 500);
         }
     }
 }

@@ -15,7 +15,8 @@ class AuthService
 
     public function authenticate(string $email, string $password): ?array
     {
-        $sql = "SELECT id, name, email, password FROM users WHERE email = :email AND is_deleted = 0";
+        // Исправлено: is_deleted = FALSE для PostgreSQL
+        $sql = "SELECT id, name, email, password FROM users WHERE email = :email AND is_deleted = FALSE";
         $user = $this->db->fetchOne($sql, ['email' => $email]);
 
         if ($user && password_verify($password, $user['password'])) {
@@ -23,7 +24,7 @@ class AuthService
 
             // Обновляем время последней активности
             $this->db->execute(
-                "UPDATE users SET last_seen = NOW(), is_online = 1 WHERE id = :id",
+                "UPDATE users SET last_seen = NOW(), is_online = TRUE WHERE id = :id",
                 ['id' => $user['id']]
             );
 
@@ -37,7 +38,7 @@ class AuthService
     {
         // Проверяем, существует ли пользователь
         $existing = $this->db->fetchOne(
-            "SELECT id FROM users WHERE email = :email",
+            "SELECT id FROM users WHERE email = :email AND is_deleted = FALSE",
             ['email' => $email]
         );
 
@@ -47,8 +48,8 @@ class AuthService
 
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-        $sql = "INSERT INTO users (name, email, password, created_at, last_seen) 
-                VALUES (:name, :email, :password, NOW(), NOW())";
+        $sql = "INSERT INTO users (name, email, password, created_at, last_seen, is_deleted, is_online) 
+                VALUES (:name, :email, :password, NOW(), NOW(), FALSE, FALSE)";
 
         $this->db->execute($sql, [
             'name' => $name,

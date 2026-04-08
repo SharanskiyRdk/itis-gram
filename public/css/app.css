@@ -281,3 +281,138 @@ body {
         margin-left: 0;
     }
 }
+
+/* Кнопки в одной строке */
+.chat-list__actions .form--inline {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.chat-list__actions input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+}
+
+/* Улучшенные кнопки */
+.button + .button,
+.form button + button {
+    margin-left: 0.5rem;
+}
+
+/* Группа кнопок */
+.button-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Модальное окно - кнопки */
+.modal-content .form button {
+    width: 100%;
+}
+
+/* Профиль - секции */
+.profile-card {
+    gap: 2rem;
+}
+
+/* Сообщения - улучшенная читаемость */
+.message {
+    max-width: 80%;
+}
+
+.message--mine {
+    margin-left: auto;
+    margin-right: 0;
+}
+
+@media (max-width: 768px) {
+    .message {
+        max-width: 95%;
+    }
+
+    .form--inline {
+        flex-direction: column;
+    }
+
+    .chat-list__actions input[type="text"] {
+        width: 100%;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    .button + .button,
+    .form button + button {
+        margin-left: 0;
+        margin-top: 0.5rem;
+    }
+}
+
+/* Анимации */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-content {
+    animation: fadeIn 0.3s ease;
+}
+
+/* Скроллбар */
+.messages::-webkit-scrollbar {
+    width: 8px;
+}
+
+.messages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.messages::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.messages::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Формы */
+.form input:focus,
+.form textarea:focus,
+.form select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+/* Ссылки */
+a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Загрузка файлов */
+input[type="file"] {
+    padding: 0.5rem;
+    border: 1px dashed #ddd;
+    background: #fafafa;
+}
+
+input[type="file"]:hover {
+    border-color: #667eea;
+    background: #f0f0ff;
+}
