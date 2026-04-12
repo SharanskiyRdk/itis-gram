@@ -13,16 +13,21 @@ class AuthService
         $this->db = new Database();
     }
 
-    public function authenticate(string $email, string $password): ?array
+    public function authenticate(string $email, string $password, string $sessionId, string $ip): ?array
     {
-        // Исправлено: is_deleted = FALSE для PostgreSQL
         $sql = "SELECT id, name, email, password FROM users WHERE email = :email AND is_deleted = FALSE";
         $user = $this->db->fetchOne($sql, ['email' => $email]);
 
         if ($user && password_verify($password, $user['password'])) {
+            // Проверяем, не зашел ли уже кто-то с этого аккаунта
+            if ($this->db->checkActiveSession($user['id'])) {
+                return ['error' => 'session_conflict'];
+            }
+
             unset($user['password']);
 
-            // Обновляем время последней активности
+            $this->db->updateUserSession($user['id'], $sessionId, $ip);
+
             $this->db->execute(
                 "UPDATE users SET last_seen = NOW(), is_online = TRUE WHERE id = :id",
                 ['id' => $user['id']]
@@ -34,9 +39,13 @@ class AuthService
         return null;
     }
 
+    public function restoreSession(string $sessionId, string $ip): ?array
+    {
+        return $this->db->getUserBySession($sessionId, $ip);
+    }
+
     public function register(string $name, string $email, string $password): ?int
     {
-        // Проверяем, существует ли пользователь
         $existing = $this->db->fetchOne(
             "SELECT id FROM users WHERE email = :email AND is_deleted = FALSE",
             ['email' => $email]
@@ -58,5 +67,10 @@ class AuthService
         ]);
 
         return $this->db->lastInsertId();
+    }
+
+    public function logout(int $userId, string $sessionId): void
+    {
+        $this->db->clearUserSession($userId);
     }
 }

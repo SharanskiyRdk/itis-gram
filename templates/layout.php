@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <?= csrf_meta() ?>
     <title><?= htmlspecialchars($title ?? 'ItisGram', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></title>
-    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="/css/app.css">
+    <link rel="stylesheet" href="/css/toast.css">
 </head>
 <body>
 <header class="header">
@@ -19,7 +20,7 @@
         </nav>
 
         <form method="POST" action="/logout" class="logout-form">
-            <?= csrf_field() ?> <!-- Использовать helper -->
+            <?= csrf_field() ?>
             <button type="submit">Выйти</button>
         </form>
     </div>
@@ -29,6 +30,8 @@
     <?= $content ?? '' ?>
 </main>
 
+<script src="/js/toast.js"></script>
+
 <script>
     window.csrfToken = '<?= csrf_token() ?>';
     window.currentUserId = <?= json_encode($_SESSION['user_id'] ?? null) ?>;
@@ -37,26 +40,35 @@
 </script>
 
 <script>
-    // Автоматическое обновление CSRF токена для всех AJAX запросов
     const originalFetch = window.fetch;
     window.fetch = function(...args) {
-        // Добавляем CSRF токен в заголовки для POST запросов
-        if (args[1] && args[1].method && args[1].method.toUpperCase() === 'POST') {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-            if (csrfToken) {
-                if (!args[1].headers) {
-                    args[1].headers = {};
+        return originalFetch.apply(this, args).then(async (response) => {
+            const clonedResponse = response.clone();
+            try {
+                const data = await clonedResponse.json();
+                if (data && data.toast) {
+                    toast.show(data.toast.message, data.toast.type);
                 }
-                args[1].headers['X-CSRF-TOKEN'] = csrfToken;
-
-                // Если есть FormData, добавляем токен в него
-                if (args[1].body instanceof FormData && !args[1].body.has('csrf_token')) {
-                    args[1].body.append('csrf_token', csrfToken);
-                }
+            } catch (e) {
+                // Не JSON ответ, игнорируем
             }
-        }
-        return originalFetch.apply(this, args);
+            return response;
+        });
     };
+
+    // Перехват alert для замены на toast (опционально)
+    const originalAlert = window.alert;
+    window.alert = function(message) {
+        toast.show(message, 'info');
+    };
+</script>
+
+<script>
+    // Уведомление о последнем входе, если есть
+    <?php if (isset($_SESSION['last_login_notification'])): ?>
+    toast.show('<?= addslashes($_SESSION['last_login_notification']) ?>', 'info');
+    <?php unset($_SESSION['last_login_notification']); ?>
+    <?php endif; ?>
 </script>
 
 <?php if (isset($scripts)): ?>

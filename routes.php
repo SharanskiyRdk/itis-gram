@@ -21,16 +21,20 @@ return function (Router $router): void {
     $router->add('POST', '/chat/send', [ChatController::class, 'send']);
     $router->add('POST', '/chat/create', [ChatController::class, 'create']);
     $router->add('POST', '/chat/delete', [ChatController::class, 'delete']);
+    $router->add('GET', '/chat/content', [ChatController::class, 'getChatContent']);
 
     // Profile routes
     $router->add('GET', '/profile', [ProfileController::class, 'show']);
     $router->add('POST', '/profile/update', [ProfileController::class, 'update']);
     $router->add('POST', '/profile/avatar', [ProfileController::class, 'avatar']);
     $router->add('POST', '/profile/avatar/delete', [ProfileController::class, 'deleteAvatar']);
+    $router->add('POST', '/profile/support', [ProfileController::class, 'support']);
+    $router->add('POST', '/profile/verify-request', [ProfileController::class, 'verifyRequest']);
 
     // Search routes
     $router->add('GET', '/search/users', [SearchController::class, 'users']);
     $router->add('GET', '/search/messages', [SearchController::class, 'messages']);
+    $router->add('POST', '/search/users/chat', [SearchController::class, 'createChat']);
 
     // File routes
     $router->add('POST', '/file/upload', [FileController::class, 'upload']);

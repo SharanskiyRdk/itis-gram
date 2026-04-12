@@ -114,4 +114,40 @@ class Database
     {
         return $this->connection->rollBack();
     }
+
+    public function updateUserSession(int $userId, string $sessionId, string $ip): bool
+    {
+        $sql = "UPDATE users SET session_id = :session_id, session_ip = :ip, session_created_at = NOW() 
+            WHERE id = :id";
+        return $this->execute($sql, [
+            'session_id' => $sessionId,
+            'ip' => $ip,
+            'id' => $userId
+        ]);
+    }
+
+    public function getUserBySession(string $sessionId, string $ip): ?array
+    {
+        $sql = "SELECT id, name, email, avatar, bio, last_seen, session_created_at 
+            FROM users 
+            WHERE session_id = :session_id AND session_ip = :ip 
+            AND session_created_at > NOW() - INTERVAL '1 hour'
+            AND is_deleted = FALSE";
+
+        return $this->fetchOne($sql, ['session_id' => $sessionId, 'ip' => $ip]);
+    }
+
+    public function clearUserSession(int $userId): bool
+    {
+        return $this->execute(
+            "UPDATE users SET session_id = NULL, session_ip = NULL, is_online = FALSE WHERE id = :id",
+            ['id' => $userId]
+        );
+    }
+
+    public function checkActiveSession(int $userId): bool
+    {
+        $sql = "SELECT 1 FROM users WHERE id = :id AND session_id IS NOT NULL AND is_online = TRUE";
+        return (bool)$this->fetchOne($sql, ['id' => $userId]);
+    }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Models\User;
+//use App\Models\User;
 use App\Services\AuthService;
 use JetBrains\PhpStorm\NoReturn;
 
@@ -21,6 +21,24 @@ class AuthController extends AbstractController
             $this->redirect('/');
         }
 
+        // Пытаемся восстановить сессию
+        $sessionId = $_COOKIE['session_id'] ?? '';
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+
+        if ($sessionId) {
+            $restoredUser = $this->authService->restoreSession($sessionId, $ip);
+            if ($restoredUser) {
+                session_regenerate_id(true);
+                $_SESSION['user_id'] = $restoredUser['id'];
+                $_SESSION['user_name'] = $restoredUser['name'];
+                $_SESSION['user_email'] = $restoredUser['email'];
+                $_SESSION['last_login'] = $restoredUser['session_created_at'] ?? date('Y-m-d H:i:s');
+
+                $this->redirect('/');
+                return;
+            }
+        }
+
         $this->render('auth/login');
     }
 
@@ -30,6 +48,7 @@ class AuthController extends AbstractController
 
         $email = trim((string)($_POST['email'] ?? ''));
         $password = (string)($_POST['password'] ?? '');
+        $remember = isset($_POST['remember']);
 
         $errors = $this->validateLogin($email, $password);
 
@@ -41,9 +60,12 @@ class AuthController extends AbstractController
             return;
         }
 
-        $user = $this->authService->authenticate($email, $password);
+        $sessionId = bin2hex(random_bytes(32));
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
-        if (!$user) {
+        $result = $this->authService->authenticate($email, $password, $sessionId, $ip);
+
+        if (!$result) {
             $this->render('auth/login', [
                 'error' => 'Неверный email или пароль',
                 'email' => $email,
@@ -51,10 +73,23 @@ class AuthController extends AbstractController
             return;
         }
 
+        if (isset($result['error']) && $result['error'] === 'session_conflict') {
+            $this->render('auth/login', [
+                'error' => 'Этот аккаунт уже активен в другом месте. Выйдите с другого устройства или подождите.',
+                'email' => $email,
+            ]);
+            return;
+        }
+
         session_regenerate_id(true);
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['user_name'] = $user['name'];
-        $_SESSION['user_email'] = $user['email'];
+        $_SESSION['user_id'] = $result['id'];
+        $_SESSION['user_name'] = $result['name'];
+        $_SESSION['user_email'] = $result['email'];
+        $_SESSION['last_login'] = date('Y-m-d H:i:s');
+
+        if ($remember) {
+            setcookie('session_id', $sessionId, time() + 86400 * 30, '/', '', true, true);
+        }
 
         $this->redirect('/');
     }
@@ -102,6 +137,7 @@ class AuthController extends AbstractController
         $_SESSION['user_id'] = $userId;
         $_SESSION['user_name'] = $name;
         $_SESSION['user_email'] = $email;
+        $_SESSION['last_login'] = date('Y-m-d H:i:s');
 
         $this->redirect('/');
     }
@@ -111,8 +147,15 @@ class AuthController extends AbstractController
     {
         $this->verifyCsrf();
 
+        if ($this->currentUserId()) {
+            $this->authService->logout($this->currentUserId(), $_COOKIE['session_id'] ?? '');
+        }
+
         $_SESSION = [];
         session_destroy();
+
+        setcookie('session_id', '', time() - 3600, '/');
+
         session_start();
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
@@ -131,8 +174,6 @@ class AuthController extends AbstractController
 
         if ($password === '') {
             $errors[] = 'Пароль обязателен';
-        } elseif (mb_strlen($password) < 6) {
-            $errors[] = 'Пароль должен быть не короче 6 символов';
         }
 
         return $errors;

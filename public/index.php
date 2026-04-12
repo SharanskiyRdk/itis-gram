@@ -4,7 +4,11 @@ require_once __DIR__ . '/../helpers.php';
 
 use App\Routing\Router;
 use App\Core\Config;
-use App\Core\Logger;
+use App\Core\ErrorHandler;
+use App\Services\LoggerService;
+
+$errorHandler = new ErrorHandler();
+$errorHandler->register();
 
 if (session_status() == PHP_SESSION_ACTIVE) {
     session_write_close();
@@ -21,9 +25,10 @@ require_once __DIR__ . '/../vendor/autoload.php';
 try {
     $config = new Config(__DIR__ . '/../.env');
 } catch (Throwable $e) {
-    Logger::error($e->getMessage(), 'EXCEPTION');
+    LoggerService::getInstance()->critical($e->getMessage());
     echo 'Ошибка загрузки конфигурации';
     session_abort();
+    exit;
 }
 
 $router = new Router();
@@ -33,4 +38,9 @@ $routes($router);
 
 $method = $_SERVER['REQUEST_METHOD'];
 $uri = $_SERVER['REQUEST_URI'];
-$router->dispatch($uri, $method);
+
+try {
+    $router->dispatch($uri, $method);
+} catch (Throwable $e) {
+    $errorHandler->handleException($e);
+}

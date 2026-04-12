@@ -1,358 +1,185 @@
-<?php ob_start(); ?>
-    <section class="profile">
-        <h1>Профиль</h1>
+<?php
+// templates/profile/show.php
+ob_start();
 
+// Защита от неопределённых переменных
+$user = $user ?? [];
+$tickets = $tickets ?? [];
+$verificationStatus = $verificationStatus ?? ['is_verified' => false, 'student_group' => null];
+$stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
+
+?>
+    <div class="profile-container">
         <div class="profile-card">
-            <div class="profile-avatar" id="profile-avatar">
-                <?php if (!empty($user['avatar'])): ?>
-                    <img src="<?= htmlspecialchars($user['avatar'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
-                         alt="Аватар"
-                         width="120"
-                         height="120"
-                         id="avatar-img">
-                <?php else: ?>
-                    <img src="/images/avatar-placeholder.png"
-                         alt="Аватар"
-                         width="120"
-                         height="120"
-                         id="avatar-img">
-                <?php endif; ?>
-                <div class="avatar-overlay" id="avatar-overlay">
-                    <span>Изменить</span>
-                </div>
-            </div>
-
-            <div class="profile-info">
-                <p><strong>Имя:</strong> <span id="user-name"><?= htmlspecialchars($user['name'] ?? 'Пользователь', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></span></p>
-                <p><strong>Email:</strong> <?= htmlspecialchars($user['email'] ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></p>
-                <p><strong>О себе:</strong> <?= nl2br(htmlspecialchars($user['bio'] ?? 'Участник ItisGram', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')) ?></p>
-                <p><strong>Статус:</strong> <?= $user['is_online'] ? 'Онлайн' : 'Был(а) ' . date('d.m.Y H:i', strtotime($user['last_seen'])) ?></p>
-                <p><strong>Дата регистрации:</strong> <?= date('d.m.Y', strtotime($user['created_at'])) ?></p>
-            </div>
-        </div>
-
-        <!-- Скрытая форма для загрузки аватара -->
-        <form method="POST" action="/profile/avatar" enctype="multipart/form-data" class="form" id="avatar-form" style="display: none;">
-            <?= csrf_field() ?>
-            <input type="file" name="avatar" id="avatar-input" accept="image/jpeg,image/png,image/webp">
-        </form>
-
-        <div class="profile-actions">
-            <button id="edit-profile-btn" class="button">Редактировать профиль</button>
-        </div>
-
-        <!-- Модальное окно для редактирования профиля -->
-        <div id="edit-modal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <span class="modal-close">&times;</span>
-                <h2>Редактировать профиль</h2>
-                <form id="edit-profile-form" class="form">
-                    <?= csrf_field() ?>
-                    <label>
-                        Имя:
-                        <input type="text" name="name" id="edit-name" required minlength="2" maxlength="100">
-                    </label>
-                    <label>
-                        О себе:
-                        <textarea name="bio" id="edit-bio" rows="4" maxlength="500"></textarea>
-                    </label>
-                    <button type="submit">Сохранить</button>
-                </form>
-            </div>
-        </div>
-
-        <!-- Модальное окно для управления аватаром -->
-        <div id="avatar-modal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <span class="modal-close">&times;</span>
-                <h2>Управление аватаром</h2>
-                <div class="avatar-modal-preview">
-                    <img id="modal-avatar-img" src="" alt="Аватар" width="150" height="150">
-                </div>
-                <div class="avatar-modal-buttons">
-                    <button id="upload-avatar-btn" class="button">Загрузить новое фото</button>
+            <div class="profile-header">
+                <div class="profile-avatar" id="profile-avatar">
                     <?php if (!empty($user['avatar'])): ?>
-                        <button id="delete-avatar-btn" class="button button--danger">Удалить аватар</button>
+                        <img src="<?= htmlspecialchars($user['avatar']) ?>" alt="Аватар" id="avatar-img">
+                    <?php else: ?>
+                        <img src="/images/avatar-placeholder.png" alt="Аватар" id="avatar-img">
+                    <?php endif; ?>
+                    <div class="avatar-overlay">
+                        <span>Изменить</span>
+                    </div>
+                    <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/webp" style="display: none;">
+                </div>
+
+                <div class="profile-info">
+                    <h2><?= htmlspecialchars($user['name'] ?? 'Пользователь') ?></h2>
+                    <div class="email"><?= htmlspecialchars($user['email'] ?? '') ?></div>
+
+                    <?php if (!empty($verificationStatus['is_verified'])): ?>
+                        <div class="verified-badge">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="#2e7d32">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            </svg>
+                            <span>Подтверждённый студент ИТИС</span>
+                            <?php if (!empty($verificationStatus['student_group'])): ?>
+                                <span style="margin-left: 8px; background: #c8e6c9; padding: 2px 8px; border-radius: 12px;"><?= htmlspecialchars($verificationStatus['student_group']) ?></span>
+                            <?php endif; ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="unverified-badge" id="request-verify-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="#e65100">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                            </svg>
+                            <span>Подтвердить статус студента ИТИС</span>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($user['bio'])): ?>
+                        <div class="bio"><?= nl2br(htmlspecialchars($user['bio'])) ?></div>
                     <?php endif; ?>
                 </div>
             </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="value"><?= (int)($stats['messages'] ?? 0) ?></div>
+                    <div class="label">Сообщений</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value"><?= (int)($stats['dialogues'] ?? 0) ?></div>
+                    <div class="label">Диалогов</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value"><?= date('d.m.Y', strtotime($user['created_at'] ?? 'now')) ?></div>
+                    <div class="label">Дата регистрации</div>
+                </div>
+            </div>
+
+            <div class="profile-actions">
+                <button class="btn btn-outline" id="edit-profile-btn">Редактировать профиль</button>
+                <button class="btn btn-outline" id="support-btn">Поддержка</button>
+                <a href="/settings" class="btn btn-outline">Настройки</a>
+            </div>
         </div>
-    </section>
 
-    <style>
-        .profile-avatar {
-            position: relative;
-            cursor: pointer;
-        }
+        <?php if (!empty($tickets)): ?>
+            <div class="profile-card">
+                <h3 style="margin-bottom: 16px;">Мои обращения</h3>
+                <div class="tickets-list">
+                    <?php foreach ($tickets as $ticket): ?>
+                        <div class="ticket-item">
+                            <div class="ticket-header">
+                                <span class="ticket-subject"><?= htmlspecialchars($ticket['subject'] ?? '') ?></span>
+                                <span class="ticket-status status-<?= htmlspecialchars($ticket['status'] ?? 'open') ?>">
+                            <?php
+                            $status = $ticket['status'] ?? 'open';
+                            if ($status === 'open') echo 'Открыто';
+                            elseif ($status === 'in_progress') echo 'В обработке';
+                            elseif ($status === 'resolved') echo 'Решено';
+                            else echo 'Закрыто';
+                            ?>
+                        </span>
+                            </div>
+                            <div class="ticket-message"><?= nl2br(htmlspecialchars(mb_substr($ticket['message'] ?? '', 0, 100))) ?>...</div>
+                            <div class="ticket-date" style="font-size: 12px; color: #65676b;">
+                                <?= date('d.m.Y H:i', strtotime($ticket['created_at'] ?? 'now')) ?>
+                            </div>
+                            <?php if (!empty($ticket['admin_response'])): ?>
+                                <div class="ticket-response">
+                                    <strong>Ответ администратора:</strong><br>
+                                    <?= nl2br(htmlspecialchars($ticket['admin_response'])) ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
 
-        .avatar-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s;
-            color: white;
-            font-size: 14px;
-        }
+    <!-- Модальное окно редактирования профиля -->
+    <div id="edit-profile-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Редактировать профиль</h3>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="edit-profile-form">
+                    <div class="form-group">
+                        <label>Имя</label>
+                        <input type="text" name="name" value="<?= htmlspecialchars($user['name'] ?? '') ?>" required>
+                    </div>
+                    <div class="form-group">
+                        <label>О себе</label>
+                        <textarea name="bio" rows="4" placeholder="Расскажите о себе..."><?= htmlspecialchars($user['bio'] ?? '') ?></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Сохранить</button>
+                </form>
+            </div>
+        </div>
+    </div>
 
-        .profile-avatar:hover .avatar-overlay {
-            opacity: 1;
-        }
+    <!-- Модальное окно верификации -->
+    <div id="verify-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Подтверждение статуса студента ИТИС</h3>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 16px;">Для подтверждения статуса студента ИТИС укажите номер вашей группы. Администратор проверит информацию и подтвердит её.</p>
+                <form id="verify-form">
+                    <div class="form-group">
+                        <label>Номер группы (например: 11-405)</label>
+                        <input type="text" id="student-group" placeholder="XX-XXX" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Отправить запрос</button>
+                </form>
+            </div>
+        </div>
+    </div>
 
-        .profile-avatar img {
-            border-radius: 50%;
-            object-fit: cover;
-            width: 120px;
-            height: 120px;
-        }
+    <!-- Модальное окно поддержки -->
+    <div id="support-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Служба поддержки</h3>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 16px;">Опишите вашу проблему или вопрос. Мы ответим вам в ближайшее время.</p>
+                <form id="ticket-form">
+                    <div class="form-group">
+                        <label>Тема</label>
+                        <input type="text" id="ticket-subject" placeholder="Кратко опишите суть" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Сообщение</label>
+                        <textarea id="ticket-message" rows="5" placeholder="Подробно опишите вашу проблему..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Отправить</button>
+                </form>
+            </div>
+        </div>
+    </div>
 
-        .profile-info {
-            flex: 1;
-        }
+    <link rel="stylesheet" href="/css/profile.css">
+    <script src="/js/profile.js"></script>
 
-        .profile-actions {
-            margin-top: 1rem;
-        }
-
-        .modal {
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-content {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 8px;
-            max-width: 500px;
-            width: 90%;
-            position: relative;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-close {
-            position: absolute;
-            right: 1rem;
-            top: 1rem;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: #999;
-        }
-
-        .modal-close:hover {
-            color: #333;
-        }
-
-        .avatar-modal-preview {
-            text-align: center;
-            margin: 1rem 0;
-        }
-
-        .avatar-modal-preview img {
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .avatar-modal-buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-        }
-
-        .button--danger {
-            background: #dc3545;
-        }
-
-        .button--danger:hover {
-            background: #c82333;
-        }
-
-        @media (max-width: 768px) {
-            .profile-card {
-                flex-direction: column;
-                align-items: center;
-                text-align: center;
-            }
-
-            .avatar-modal-buttons {
-                flex-direction: column;
-            }
-        }
-    </style>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Элементы
-            const avatarContainer = document.getElementById('profile-avatar');
-            const avatarForm = document.getElementById('avatar-form');
-            const avatarInput = document.getElementById('avatar-input');
-            const avatarModal = document.getElementById('avatar-modal');
-            const editModal = document.getElementById('edit-modal');
-            const modalAvatarImg = document.getElementById('modal-avatar-img');
-            const avatarImg = document.getElementById('avatar-img');
-
-            // Открытие модального окна аватара
-            if (avatarContainer) {
-                avatarContainer.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const currentAvatarSrc = avatarImg ? avatarImg.src : '';
-                    if (modalAvatarImg) {
-                        modalAvatarImg.src = currentAvatarSrc;
-                    }
-                    avatarModal.style.display = 'flex';
-                });
-            }
-
-            // Закрытие модальных окон
-            document.querySelectorAll('.modal-close').forEach(closeBtn => {
-                closeBtn.addEventListener('click', function() {
-                    this.closest('.modal').style.display = 'none';
-                });
-            });
-
-            // Закрытие по клику вне окна
-            window.addEventListener('click', function(e) {
-                if (e.target === avatarModal) {
-                    avatarModal.style.display = 'none';
-                }
-                if (e.target === editModal) {
-                    editModal.style.display = 'none';
-                }
-            });
-
-            // Загрузка нового аватара
-            document.getElementById('upload-avatar-btn')?.addEventListener('click', function() {
-                avatarInput.click();
-                avatarModal.style.display = 'none';
-            });
-
-            // Обработка выбора файла
-            avatarInput?.addEventListener('change', async function(e) {
-                if (this.files && this.files[0]) {
-                    const formData = new FormData();
-                    formData.append('avatar', this.files[0]);
-
-                    // Добавляем CSRF токен
-                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-                    if (csrfToken) {
-                        formData.append('csrf_token', csrfToken);
-                    }
-
-                    try {
-                        const response = await fetch('/profile/avatar', {
-                            method: 'POST',
-                            body: formData,
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest'
-                            }
-                        });
-
-                        const result = await response.json();
-
-                        if (result.success) {
-                            // Обновляем аватар на странице
-                            const timestamp = new Date().getTime();
-                            if (avatarImg) {
-                                avatarImg.src = result.avatar_url + '?t=' + timestamp;
-                            }
-                            alert('Аватар успешно обновлен');
-                            location.reload(); // Перезагружаем для обновления всех данных
-                        } else {
-                            alert(result.error || 'Ошибка при загрузке аватара');
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                        alert('Ошибка при загрузке аватара');
-                    }
-                }
-            });
-
-            // Удаление аватара
-            document.getElementById('delete-avatar-btn')?.addEventListener('click', async function() {
-                if (confirm('Вы уверены, что хотите удалить аватар?')) {
-                    try {
-                        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-                        const formData = new FormData();
-                        formData.append('csrf_token', csrfToken);
-
-                        const response = await fetch('/profile/avatar/delete', {
-                            method: 'POST',
-                            body: formData,
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest'
-                            }
-                        });
-
-                        const result = await response.json();
-
-                        if (result.success) {
-                            alert('Аватар удален');
-                            location.reload();
-                        } else {
-                            alert(result.error || 'Ошибка при удалении аватара');
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                        alert('Ошибка при удалении аватара');
-                    }
-                }
-            });
-
-            // Редактирование профиля
-            document.getElementById('edit-profile-btn')?.addEventListener('click', function() {
-                const userName = document.getElementById('user-name')?.textContent || '';
-                const userBio = document.querySelector('.profile-info p:nth-child(3)')?.textContent.replace('О себе:', '').trim() || '';
-
-                document.getElementById('edit-name').value = userName;
-                document.getElementById('edit-bio').value = userBio;
-                editModal.style.display = 'flex';
-            });
-
-            // Сохранение профиля
-            document.getElementById('edit-profile-form')?.addEventListener('submit', async function(e) {
-                e.preventDefault();
-
-                const formData = new FormData(this);
-
-                try {
-                    const response = await fetch('/profile/update', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    });
-
-                    const result = await response.json();
-
-                    if (result.success) {
-                        alert('Профиль обновлен');
-                        location.reload();
-                    } else {
-                        alert(result.error || 'Ошибка при обновлении профиля');
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    alert('Ошибка при обновлении профиля');
-                }
-            });
-        });
-    </script>
 <?php
 $content = ob_get_clean();
 $title = 'Профиль';

@@ -1,0 +1,46 @@
+# Composer
+vendor/
+composer.lock
+composer.phar
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+runtime/logs/
+*.log
+
+# Uploads
+public/uploads/
+public/images/avatar-placeholder.png
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# PHP
+*.cache
+*.old
+*.bak
+
+# Session
+sessions/
+session_*
+
+# Temp
+tmp/
+temp/
+*.tmp
+
+# Config
+config.local.php

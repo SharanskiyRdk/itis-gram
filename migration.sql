@@ -1,7 +1,5 @@
--- Создание базы данных
 CREATE DATABASE itisgram;
 
--- Таблица users
 CREATE TABLE users (
                        id SERIAL PRIMARY KEY,
                        name VARCHAR(100) NOT NULL,
@@ -16,7 +14,6 @@ CREATE TABLE users (
                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Таблица dialogues
 CREATE TABLE dialogues (
                            id SERIAL PRIMARY KEY,
                            type VARCHAR(20) NOT NULL CHECK (type IN ('private', 'group')),
@@ -26,7 +23,6 @@ CREATE TABLE dialogues (
                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Таблица dialogue_users
 CREATE TABLE dialogue_users (
                                 id SERIAL PRIMARY KEY,
                                 dialogue_id INT NOT NULL REFERENCES dialogues(id) ON DELETE CASCADE,
@@ -36,7 +32,6 @@ CREATE TABLE dialogue_users (
                                 UNIQUE(dialogue_id, user_id)
 );
 
--- Таблица messages
 CREATE TABLE messages (
                           id SERIAL PRIMARY KEY,
                           dialogue_id INT NOT NULL REFERENCES dialogues(id) ON DELETE CASCADE,
@@ -51,7 +46,6 @@ CREATE TABLE messages (
                           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Таблица message_reactions
 CREATE TABLE message_reactions (
                                    id SERIAL PRIMARY KEY,
                                    message_id INT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
@@ -61,13 +55,49 @@ CREATE TABLE message_reactions (
                                    UNIQUE(message_id, user_id)
 );
 
--- Создание индексов
 CREATE INDEX idx_messages_dialogue_id ON messages(dialogue_id);
 CREATE INDEX idx_messages_user_id ON messages(user_id);
 CREATE INDEX idx_dialogue_users_user_id ON dialogue_users(user_id);
 CREATE INDEX idx_dialogue_users_dialogue_id ON dialogue_users(dialogue_id);
 CREATE INDEX idx_users_email ON users(email);
 
--- Создание тестового пользователя (пароль: password123)
 INSERT INTO users (name, email, password, created_at)
 VALUES ('Admin', 'admin@itisgram.test', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', NOW());
+
+ALTER TABLE users ADD COLUMN session_id VARCHAR(255) NULL;
+ALTER TABLE users ADD COLUMN session_ip VARCHAR(45) NULL;
+ALTER TABLE users ADD COLUMN session_created_at TIMESTAMP NULL;
+
+CREATE INDEX idx_users_session_id ON users(session_id);\
+
+ALTER TABLE users ADD COLUMN is_verified_student BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN student_group VARCHAR(50) NULL;
+ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN ban_reason TEXT NULL;
+ALTER TABLE users ADD COLUMN banned_at TIMESTAMP NULL;
+
+-- Таблица для обращений в поддержку
+CREATE TABLE support_tickets (
+                                 id SERIAL PRIMARY KEY,
+                                 user_id INT NOT NULL REFERENCES users(id),
+                                 subject VARCHAR(255) NOT NULL,
+                                 message TEXT NOT NULL,
+                                 status VARCHAR(20) DEFAULT 'open', -- open, in_progress, resolved, closed
+                                 admin_response TEXT,
+                                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица для администраторов
+CREATE TABLE admins (
+                        id SERIAL PRIMARY KEY,
+                        user_id INT NOT NULL REFERENCES users(id),
+                        role VARCHAR(50) DEFAULT 'moderator', -- admin, moderator, support
+                        permissions JSON,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Индексы
+CREATE INDEX idx_users_verified ON users(is_verified_student);
+CREATE INDEX idx_support_tickets_status ON support_tickets(status);
+CREATE INDEX idx_support_tickets_user_id ON support_tickets(user_id);

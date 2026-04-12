@@ -1,27 +1,71 @@
-<?php ob_start(); ?>
-    <section class="auth">
-        <h1>Вход</h1>
+<?php
+// templates/auth/login.php
+ob_start();
+?>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="logo">
+                <h1>ItisGram</h1>
+                <p>Связь с одногруппниками</p>
+            </div>
 
-        <?php if (!empty($error)): ?>
-            <div class="alert alert--error"><?= htmlspecialchars($error, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
-        <?php endif; ?>
+            <?php if (!empty($error)): ?>
+                <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
+            <?php endif; ?>
 
-        <form method="POST" action="/login" class="form">
-            <?= csrf_field() ?>
+            <form id="login-form" method="POST" action="/login">
+                <?= csrf_field() ?>
 
-            <label>
-                Email
-                <input type="email" name="email" required maxlength="255" value="<?= htmlspecialchars($email ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
-            </label>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email"
+                           id="email"
+                           name="email"
+                           placeholder="your@email.com"
+                           value="<?= htmlspecialchars($email ?? '') ?>"
+                           required
+                           autocomplete="email"
+                           autofocus>
+                    <span class="error-message" id="email-error"></span>
+                </div>
 
-            <label>
-                Пароль
-                <input type="password" name="password" required minlength="6" maxlength="100">
-            </label>
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input type="password"
+                           id="password"
+                           name="password"
+                           placeholder="••••••"
+                           required
+                           autocomplete="current-password">
+                    <span class="error-message" id="password-error"></span>
+                </div>
 
-            <button type="submit">Войти</button>
-        </form>
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" name="remember">
+                        Запомнить меня
+                    </label>
+                    <a href="/forgot-password" class="forgot-link">Забыли пароль?</a>
+                </div>
 
-        <p><a href="/register">Нет аккаунта? Зарегистрироваться</a></p>
-    </section>
-<?php $content = ob_get_clean(); $title = 'Вход'; require __DIR__ . '/../layout.php'; ?>
+                <button type="submit" id="submit-btn" class="btn">Войти</button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Нет аккаунта?</p>
+                <a href="/register">Создать аккаунт</a>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+    </style>
+<?php
+$content = ob_get_clean();
+$title = 'Вход';
+require __DIR__ . '/layout.php';
+?>

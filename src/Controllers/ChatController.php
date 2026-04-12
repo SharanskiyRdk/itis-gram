@@ -3,15 +3,18 @@
 namespace App\Controllers;
 
 use App\Services\ChatService;
+use App\Services\ProfileService;
 use JetBrains\PhpStorm\NoReturn;
 
 class ChatController extends AbstractController
 {
     private ChatService $chatService;
+    private ProfileService $profileService;
 
     public function __construct()
     {
         $this->chatService = new ChatService();
+        $this->profileService = new ProfileService();
     }
 
     public function index(): void
@@ -20,7 +23,16 @@ class ChatController extends AbstractController
 
         $dialogues = $this->chatService->getUserDialogues($this->currentUserId());
 
-        $this->render('chat/index', ['dialogues' => $dialogues]);
+        $_SESSION['avatar'] = $this->profileService->getUser($this->currentUserId())['avatar'] ?? null;
+
+        $this->render('chat/index', [
+            'dialogues' => $dialogues,
+            'user' => [
+                'name' => $this->currentUserName(),
+                'email' => $this->currentUserEmail(),
+                'avatar' => $_SESSION['avatar'] ?? null
+            ]
+        ]);
     }
 
     public function show(): void
@@ -33,7 +45,6 @@ class ChatController extends AbstractController
             return;
         }
 
-        // Проверяем, имеет ли пользователь доступ к диалогу
         if (!$this->chatService->canAccessDialogue($dialogueId, $this->currentUserId())) {
             $this->redirect('/');
             return;
@@ -41,6 +52,18 @@ class ChatController extends AbstractController
 
         $messages = $this->chatService->getMessages($dialogueId, $this->currentUserId());
         $dialogue = $this->chatService->getDialogue($dialogueId);
+
+        // Получаем участников для личного чата
+        if ($dialogue && $dialogue['type'] === 'private') {
+            $participants = $this->chatService->getDialogueParticipants($dialogueId);
+            $dialogue['participants'] = $participants;
+        }
+
+        // Получаем количество участников для группового чата
+        if ($dialogue && $dialogue['type'] === 'group') {
+            $membersCount = $this->chatService->getDialogueMembersCount($dialogueId);
+            $dialogue['members_count'] = $membersCount;
+        }
 
         $this->render('chat/show', [
             'dialogue_id' => $dialogueId,
@@ -58,20 +81,26 @@ class ChatController extends AbstractController
         $userId = (int)($_POST['user_id'] ?? 0);
 
         if ($userId > 0) {
-            // Создаем личный чат
             $dialogueId = $this->chatService->createPrivateChat(
                 $this->currentUserId(),
                 $userId
             );
         } else {
-            // Создаем групповой чат
             if ($title === '') {
-                $this->json(['error' => 'Название чата обязательно'], 422);
+                if ($this->isAjax()) {
+                    $this->json(['error' => 'Название чата обязательно'], 422);
+                } else {
+                    $this->render('chat/index', ['error' => 'Название чата обязательно']);
+                }
                 return;
             }
 
             if (mb_strlen($title) > 255) {
-                $this->json(['error' => 'Название чата слишком длинное'], 422);
+                if ($this->isAjax()) {
+                    $this->json(['error' => 'Название чата слишком длинное'], 422);
+                } else {
+                    $this->render('chat/index', ['error' => 'Название чата слишком длинное']);
+                }
                 return;
             }
 
@@ -82,11 +111,26 @@ class ChatController extends AbstractController
         }
 
         if ($dialogueId) {
-            $this->redirect("/chat?id=$dialogueId");
+            if ($this->isAjax()) {
+                $this->json(['success' => true, 'dialogue_id' => $dialogueId]);
+            } else {
+                $this->redirect("/chat?id=$dialogueId");
+            }
         } else {
-            $this->render('chat/index', ['error' => 'Не удалось создать чат']);
+            if ($this->isAjax()) {
+                $this->json(['error' => 'Не удалось создать чат'], 500);
+            } else {
+                $this->render('chat/index', ['error' => 'Не удалось создать чат']);
+            }
         }
     }
+
+    private function isAjax(): bool
+    {
+        return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+    }
+
 
     #[NoReturn]
     public function send(): void
@@ -125,6 +169,7 @@ class ChatController extends AbstractController
         }
     }
 
+    #[NoReturn]
     public function delete(): void
     {
         $this->verifyCsrf();
@@ -143,5 +188,43 @@ class ChatController extends AbstractController
         } else {
             $this->json(['error' => 'Не удалось удалить сообщение'], 500);
         }
+    }
+
+    public function getChatContent(): void
+    {
+        $this->requireAuth();
+
+        $dialogueId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+        if (!$dialogueId || $dialogueId < 1) {
+            echo '<div class="empty-chat"><p>Чат не найден</p></div>';
+            return;
+        }
+
+        if (!$this->chatService->canAccessDialogue($dialogueId, $this->currentUserId())) {
+            echo '<div class="empty-chat"><p>Нет доступа</p></div>';
+            return;
+        }
+
+        $messages = $this->chatService->getMessages($dialogueId, $this->currentUserId());
+        $dialogue = $this->chatService->getDialogue($dialogueId);
+
+        // Получаем участников для личного чата
+        $otherUser = null;
+        if ($dialogue && $dialogue['type'] === 'private') {
+            $participants = $this->chatService->getDialogueParticipants($dialogueId);
+            foreach ($participants as $p) {
+                if ($p['id'] != $this->currentUserId()) {
+                    $otherUser = $p;
+                    break;
+                }
+            }
+        }
+
+        $this->render('chat/_chat_content', [
+            'dialogue_id' => $dialogueId,
+            'messages' => $messages,
+            'dialogue' => $dialogue,
+            'otherUser' => $otherUser
+        ]);
     }
 }

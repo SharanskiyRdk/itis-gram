@@ -52,7 +52,6 @@ class ChatService
 
         $messages = $this->db->fetchAll($sql, ['dialogue_id' => $dialogueId]);
 
-        // Отмечаем сообщения как прочитанные
         $this->markMessagesAsRead($dialogueId, $userId);
 
         return $messages;
@@ -71,7 +70,6 @@ class ChatService
 
         $messageId = $this->db->lastInsertId();
 
-        // Обновляем время последнего сообщения в диалоге
         $this->db->execute(
             "UPDATE dialogues SET updated_at = NOW() WHERE id = :id",
             ['id' => $dialogueId]
@@ -82,7 +80,6 @@ class ChatService
 
     public function deleteMessage(int $messageId, int $userId): bool
     {
-        // Проверяем, что пользователь является автором сообщения
         $sql = "SELECT user_id FROM messages WHERE id = :id AND is_deleted = FALSE";
         $message = $this->db->fetchOne($sql, ['id' => $messageId]);
 
@@ -98,7 +95,6 @@ class ChatService
 
     public function createPrivateChat(int $userId1, int $userId2): ?int
     {
-        // Проверяем, существует ли уже личный чат между пользователями
         $sql = "SELECT d.id FROM dialogues d
                 INNER JOIN dialogue_users du1 ON d.id = du1.dialogue_id
                 INNER JOIN dialogue_users du2 ON d.id = du2.dialogue_id
@@ -112,13 +108,11 @@ class ChatService
             return $existing['id'];
         }
 
-        // Создаем диалог
         $this->db->execute(
             "INSERT INTO dialogues (type, created_at, updated_at) VALUES ('private', NOW(), NOW())"
         );
         $dialogueId = $this->db->lastInsertId();
 
-        // Добавляем участников
         $this->db->execute(
             "INSERT INTO dialogue_users (dialogue_id, user_id, joined_at) VALUES (:dialogue_id, :user_id, NOW())",
             ['dialogue_id' => $dialogueId, 'user_id' => $userId1]
@@ -141,7 +135,6 @@ class ChatService
 
         $dialogueId = $this->db->lastInsertId();
 
-        // Добавляем создателя в чат
         $this->db->execute(
             "INSERT INTO dialogue_users (dialogue_id, user_id, joined_at) VALUES (:dialogue_id, :user_id, NOW())",
             ['dialogue_id' => $dialogueId, 'user_id' => $createdBy]
@@ -157,5 +150,22 @@ class ChatService
              WHERE dialogue_id = :dialogue_id AND user_id = :user_id",
             ['dialogue_id' => $dialogueId, 'user_id' => $userId]
         );
+    }
+
+    public function getDialogueParticipants(int $dialogueId): array
+    {
+        $sql = "SELECT u.id, u.name, u.email, u.avatar, u.is_online, u.last_seen
+            FROM users u
+            INNER JOIN dialogue_users du ON u.id = du.user_id
+            WHERE du.dialogue_id = :dialogue_id AND u.is_deleted = FALSE";
+
+        return $this->db->fetchAll($sql, ['dialogue_id' => $dialogueId]);
+    }
+
+    public function getDialogueMembersCount(int $dialogueId): int
+    {
+        $sql = "SELECT COUNT(*) as count FROM dialogue_users WHERE dialogue_id = :dialogue_id";
+        $result = $this->db->fetchOne($sql, ['dialogue_id' => $dialogueId]);
+        return $result['count'] ?? 0;
     }
 }
