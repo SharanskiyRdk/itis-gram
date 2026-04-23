@@ -1,8 +1,6 @@
-// public/js/auth.js
 (function() {
     'use strict';
 
-    // Валидация форм
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
 
@@ -11,7 +9,6 @@
         const passwordInput = document.getElementById('password');
         const submitBtn = document.getElementById('submit-btn');
 
-        // Live validation
         if (emailInput) {
             emailInput.addEventListener('input', function() {
                 validateEmail(this);

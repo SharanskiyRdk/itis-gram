@@ -1,4 +1,3 @@
-// public/js/profile.js
 (function() {
     'use strict';
 

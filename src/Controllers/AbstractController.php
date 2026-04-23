@@ -2,22 +2,26 @@
 
 namespace App\Controllers;
 
+use App\Exceptions\NotFoundException;
+use App\Services\LoggerService;
 use JetBrains\PhpStorm\NoReturn;
 
 abstract class AbstractController
 {
+    /**
+     * @throws NotFoundException
+     */
     protected function render(string $view, array $data = []): void
     {
-        extract($data);
-
         $viewFile = __DIR__ . '/../../templates/' . $view . '.php';
 
-        if (file_exists($viewFile)) {
-            require $viewFile;
-            return;
+        if (!file_exists($viewFile)) {
+            LoggerService::getInstance()->error("View not found: {$view}");
+            throw new NotFoundException("View {$view} not found");
         }
 
-        echo 'View not found: ' . $view;
+        extract($data);
+        require $viewFile;
     }
 
     #[NoReturn]

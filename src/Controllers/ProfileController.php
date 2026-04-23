@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Core\Database;
 use App\Services\ProfileService;
 use JetBrains\PhpStorm\NoReturn;
 
@@ -51,7 +52,7 @@ class ProfileController extends AbstractController
 
     private function getUserStats(int $userId): array
     {
-        $db = new \App\Database\Database();
+        $db = Database::getInstance();
 
         $messagesCount = $db->fetchOne(
             "SELECT COUNT(*) as count FROM messages WHERE user_id = :user_id AND is_deleted = FALSE",

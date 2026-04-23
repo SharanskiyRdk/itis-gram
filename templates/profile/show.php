@@ -3,7 +3,7 @@
 ob_start();
 
 // Защита от неопределённых переменных
-$user = $user ?? [];
+$user = $user ?? null;
 $tickets = $tickets ?? [];
 $verificationStatus = $verificationStatus ?? ['is_verified' => false, 'student_group' => null];
 $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
@@ -13,8 +13,8 @@ $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
         <div class="profile-card">
             <div class="profile-header">
                 <div class="profile-avatar" id="profile-avatar">
-                    <?php if (!empty($user['avatar'])): ?>
-                        <img src="<?= htmlspecialchars($user['avatar']) ?>" alt="Аватар" id="avatar-img">
+                    <?php if ($user && $user->getAvatar()): ?>
+                        <img src="<?= htmlspecialchars($user->getAvatar()) ?>" alt="Аватар" id="avatar-img">
                     <?php else: ?>
                         <img src="/images/avatar-placeholder.png" alt="Аватар" id="avatar-img">
                     <?php endif; ?>
@@ -25,8 +25,8 @@ $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
                 </div>
 
                 <div class="profile-info">
-                    <h2><?= htmlspecialchars($user['name'] ?? 'Пользователь') ?></h2>
-                    <div class="email"><?= htmlspecialchars($user['email'] ?? '') ?></div>
+                    <h2><?= htmlspecialchars($user ? $user->getName() : 'Пользователь') ?></h2>
+                    <div class="email"><?= htmlspecialchars($user ? $user->getEmail() : '') ?></div>
 
                     <?php if (!empty($verificationStatus['is_verified'])): ?>
                         <div class="verified-badge">
@@ -47,8 +47,8 @@ $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
                         </div>
                     <?php endif; ?>
 
-                    <?php if (!empty($user['bio'])): ?>
-                        <div class="bio"><?= nl2br(htmlspecialchars($user['bio'])) ?></div>
+                    <?php if ($user && $user->getBio()): ?>
+                        <div class="bio"><?= nl2br(htmlspecialchars($user->getBio())) ?></div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -63,15 +63,15 @@ $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
                     <div class="label">Диалогов</div>
                 </div>
                 <div class="stat-card">
-                    <div class="value"><?= date('d.m.Y', strtotime($user['created_at'] ?? 'now')) ?></div>
+                    <div class="value"><?= $user ? date('d.m.Y', strtotime($user->getCreatedAt())) : date('d.m.Y') ?></div>
                     <div class="label">Дата регистрации</div>
                 </div>
             </div>
 
             <div class="profile-actions">
-                <button class="btn btn-outline" id="edit-profile-btn">Редактировать профиль</button>
-                <button class="btn btn-outline" id="support-btn">Поддержка</button>
-                <a href="/settings" class="btn btn-outline">Настройки</a>
+                <button class="btn btn-outline" id="edit-profile-btn">✏️ Редактировать профиль</button>
+                <button class="btn btn-outline" id="support-btn">💬 Поддержка</button>
+                <a href="/settings" class="btn btn-outline">⚙️ Настройки</a>
             </div>
         </div>
 
@@ -84,14 +84,14 @@ $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
                             <div class="ticket-header">
                                 <span class="ticket-subject"><?= htmlspecialchars($ticket['subject'] ?? '') ?></span>
                                 <span class="ticket-status status-<?= htmlspecialchars($ticket['status'] ?? 'open') ?>">
-                            <?php
-                            $status = $ticket['status'] ?? 'open';
-                            if ($status === 'open') echo 'Открыто';
-                            elseif ($status === 'in_progress') echo 'В обработке';
-                            elseif ($status === 'resolved') echo 'Решено';
-                            else echo 'Закрыто';
-                            ?>
-                        </span>
+                                <?php
+                                $status = $ticket['status'] ?? 'open';
+                                if ($status === 'open') echo 'Открыто';
+                                elseif ($status === 'in_progress') echo 'В обработке';
+                                elseif ($status === 'resolved') echo 'Решено';
+                                else echo 'Закрыто';
+                                ?>
+                            </span>
                             </div>
                             <div class="ticket-message"><?= nl2br(htmlspecialchars(mb_substr($ticket['message'] ?? '', 0, 100))) ?>...</div>
                             <div class="ticket-date" style="font-size: 12px; color: #65676b;">
@@ -121,11 +121,11 @@ $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
                 <form id="edit-profile-form">
                     <div class="form-group">
                         <label>Имя</label>
-                        <input type="text" name="name" value="<?= htmlspecialchars($user['name'] ?? '') ?>" required>
+                        <input type="text" name="name" value="<?= htmlspecialchars($user ? $user->getName() : '', ENT_QUOTES, 'UTF-8') ?>" required>
                     </div>
                     <div class="form-group">
                         <label>О себе</label>
-                        <textarea name="bio" rows="4" placeholder="Расскажите о себе..."><?= htmlspecialchars($user['bio'] ?? '') ?></textarea>
+                        <textarea name="bio" rows="4" placeholder="Расскажите о себе..."><?= htmlspecialchars($user && $user->getBio() ? $user->getBio() : '', ENT_QUOTES, 'UTF-8') ?></textarea>
                     </div>
                     <button type="submit" class="btn btn-primary" style="width: 100%;">Сохранить</button>
                 </form>

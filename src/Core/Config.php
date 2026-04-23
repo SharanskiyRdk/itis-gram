@@ -24,6 +24,7 @@ class Config
      * @throws ConfigException
      */
     private function load(string $pathToEnv): void {
+
         if (!file_exists($pathToEnv)) {
             throw new FileNotFoundException('Файл .env не найден');
         }

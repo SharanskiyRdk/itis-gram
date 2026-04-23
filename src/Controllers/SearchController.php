@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Database\Database;
+use App\Core\Database;
 
 class SearchController extends AbstractController
 {
@@ -10,7 +10,7 @@ class SearchController extends AbstractController
 
     public function __construct()
     {
-        $this->db = new Database();
+        $this->db = Database::getInstance();
     }
 
     public function users(): void

@@ -1,4 +1,3 @@
-// public/js/chat.js
 (function() {
     'use strict';
 

@@ -2,5 +2,5 @@
 
 namespace App\Exceptions;
 
-class ConfigException extends \Exception {
+class ConfigException extends AppException {
 }

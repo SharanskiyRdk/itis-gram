@@ -1,8 +1,9 @@
 <?php
-
+// App/Services/AuthService.php
 namespace App\Services;
 
-use App\Database\Database;
+use App\Models\User;
+use App\Core\Database;
 
 class AuthService
 {
@@ -10,27 +11,19 @@ class AuthService
 
     public function __construct()
     {
-        $this->db = new Database();
+        $this->db = Database::getInstance();
     }
 
-    public function authenticate(string $email, string $password, string $sessionId, string $ip): ?array
+    public function authenticate(string $email, string $password, string $sessionId, string $ip): ?User
     {
-        $sql = "SELECT id, name, email, password FROM users WHERE email = :email AND is_deleted = FALSE";
-        $user = $this->db->fetchOne($sql, ['email' => $email]);
+        $user = User::firstWhere('email', $email);
 
-        if ($user && password_verify($password, $user['password'])) {
-            // Проверяем, не зашел ли уже кто-то с этого аккаунта
-            if ($this->db->checkActiveSession($user['id'])) {
-                return ['error' => 'session_conflict'];
-            }
-
-            unset($user['password']);
-
-            $this->db->updateUserSession($user['id'], $sessionId, $ip);
+        if ($user && $user->verifyPassword($password)) {
+            $this->db->updateUserSession($user->getId(), $sessionId, $ip);
 
             $this->db->execute(
-                "UPDATE users SET last_seen = NOW(), is_online = TRUE WHERE id = :id",
-                ['id' => $user['id']]
+                "UPDATE users SET is_online = TRUE, last_seen = NOW() WHERE id = :id",
+                ['id' => $user->getId()]
             );
 
             return $user;
@@ -39,38 +32,54 @@ class AuthService
         return null;
     }
 
-    public function restoreSession(string $sessionId, string $ip): ?array
+    public function register(string $name, string $email, string $password): ?User
     {
-        return $this->db->getUserBySession($sessionId, $ip);
-    }
-
-    public function register(string $name, string $email, string $password): ?int
-    {
-        $existing = $this->db->fetchOne(
-            "SELECT id FROM users WHERE email = :email AND is_deleted = FALSE",
-            ['email' => $email]
-        );
-
-        if ($existing) {
+        $existing = User::firstWhere('email', $email);
+        if ($existing && $existing->getId()) {
             return null;
         }
 
-        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-
-        $sql = "INSERT INTO users (name, email, password, created_at, last_seen, is_deleted, is_online) 
-                VALUES (:name, :email, :password, NOW(), NOW(), FALSE, FALSE)";
-
-        $this->db->execute($sql, [
+        $user = new User([
             'name' => $name,
             'email' => $email,
-            'password' => $hashedPassword
+            'password' => password_hash($password, PASSWORD_DEFAULT),
+            'is_online' => false,
+            'is_deleted' => false,
+            'is_verified_student' => false,
+            'last_seen' => date('Y-m-d H:i:s')
         ]);
 
-        return $this->db->lastInsertId();
+        if ($user->save()) {
+            return $user;
+        }
+
+        return null;
     }
 
+    // AuthService.php
     public function logout(int $userId, string $sessionId): void
     {
-        $this->db->clearUserSession($userId);
+        // Очищаем сессию в БД
+        $this->db->execute(
+            "UPDATE users SET session_id = NULL, session_ip = NULL, is_online = FALSE, last_seen = NOW() WHERE id = :id",
+            ['id' => $userId]
+        );
+    }
+
+    public function restoreSession(string $sessionId, string $ip): ?User
+    {
+        $data = $this->db->getUserBySession($sessionId, $ip);
+        if ($data) {
+            return new User([
+                'id' => $data['id'],
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'avatar' => $data['avatar'] ?? null,
+                'bio' => $data['bio'] ?? null,
+                'last_seen' => $data['last_seen'] ?? date('Y-m-d H:i:s'),
+                'session_created_at' => $data['session_created_at'] ?? null
+            ]);
+        }
+        return null;
     }
 }

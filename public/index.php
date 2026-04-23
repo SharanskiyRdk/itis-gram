@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../helpers.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 
 use App\Routing\Router;
 use App\Core\Config;
@@ -19,8 +20,6 @@ session_start();
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
-
-require_once __DIR__ . '/../vendor/autoload.php';
 
 try {
     $config = new Config(__DIR__ . '/../.env');

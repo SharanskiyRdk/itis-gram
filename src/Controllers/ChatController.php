@@ -3,18 +3,15 @@
 namespace App\Controllers;
 
 use App\Services\ChatService;
-use App\Services\ProfileService;
 use JetBrains\PhpStorm\NoReturn;
 
 class ChatController extends AbstractController
 {
     private ChatService $chatService;
-    private ProfileService $profileService;
 
     public function __construct()
     {
         $this->chatService = new ChatService();
-        $this->profileService = new ProfileService();
     }
 
     public function index(): void
@@ -23,15 +20,8 @@ class ChatController extends AbstractController
 
         $dialogues = $this->chatService->getUserDialogues($this->currentUserId());
 
-        $_SESSION['avatar'] = $this->profileService->getUser($this->currentUserId())['avatar'] ?? null;
-
         $this->render('chat/index', [
-            'dialogues' => $dialogues,
-            'user' => [
-                'name' => $this->currentUserName(),
-                'email' => $this->currentUserEmail(),
-                'avatar' => $_SESSION['avatar'] ?? null
-            ]
+            'dialogues' => $dialogues
         ]);
     }
 
@@ -52,18 +42,6 @@ class ChatController extends AbstractController
 
         $messages = $this->chatService->getMessages($dialogueId, $this->currentUserId());
         $dialogue = $this->chatService->getDialogue($dialogueId);
-
-        // Получаем участников для личного чата
-        if ($dialogue && $dialogue['type'] === 'private') {
-            $participants = $this->chatService->getDialogueParticipants($dialogueId);
-            $dialogue['participants'] = $participants;
-        }
-
-        // Получаем количество участников для группового чата
-        if ($dialogue && $dialogue['type'] === 'group') {
-            $membersCount = $this->chatService->getDialogueMembersCount($dialogueId);
-            $dialogue['members_count'] = $membersCount;
-        }
 
         $this->render('chat/show', [
             'dialogue_id' => $dialogueId,
@@ -130,7 +108,6 @@ class ChatController extends AbstractController
         return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
             strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
     }
-
 
     #[NoReturn]
     public function send(): void

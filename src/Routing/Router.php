@@ -46,4 +46,16 @@ class Router
         http_response_code(404);
         echo '404 Not Found';
     }
+
+    private function getRequestBody(string $method): array
+    {
+        if ($method === 'POST') {
+            return $_POST;
+        }
+        if (in_array($method, ['PUT', 'PATCH', 'DELETE'])) {
+            parse_str(file_get_contents('php://input'), $body);
+            return $body;
+        }
+        return [];
+    }
 }

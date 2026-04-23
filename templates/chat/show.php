@@ -1,4 +1,9 @@
-<?php ob_start(); ?>
+<?php
+
+ob_start();
+
+$dialogueType = $dialogue['type'] ?? 'private';
+?>
     <div class="chat-container">
         <div class="chat-header">
             <div class="chat-header__back">
@@ -10,7 +15,7 @@
             </div>
             <div class="chat-header__info">
                 <div class="chat-avatar">
-                    <?php if ($dialogue['type'] === 'group'): ?>
+                    <?php if ($dialogueType === 'group'): ?>
                         <div class="group-avatar">
                             <svg width="40" height="40" viewBox="0 0 24 24" fill="#667eea">
                                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>

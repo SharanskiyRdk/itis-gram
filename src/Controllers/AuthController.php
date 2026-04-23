@@ -2,7 +2,6 @@
 
 namespace App\Controllers;
 
-//use App\Models\User;
 use App\Services\AuthService;
 use JetBrains\PhpStorm\NoReturn;
 
@@ -63,9 +62,9 @@ class AuthController extends AbstractController
         $sessionId = bin2hex(random_bytes(32));
         $ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
-        $result = $this->authService->authenticate($email, $password, $sessionId, $ip);
+        $user = $this->authService->authenticate($email, $password, $sessionId, $ip);
 
-        if (!$result) {
+        if (!$user) {
             $this->render('auth/login', [
                 'error' => 'Неверный email или пароль',
                 'email' => $email,
@@ -73,18 +72,10 @@ class AuthController extends AbstractController
             return;
         }
 
-        if (isset($result['error']) && $result['error'] === 'session_conflict') {
-            $this->render('auth/login', [
-                'error' => 'Этот аккаунт уже активен в другом месте. Выйдите с другого устройства или подождите.',
-                'email' => $email,
-            ]);
-            return;
-        }
-
         session_regenerate_id(true);
-        $_SESSION['user_id'] = $result['id'];
-        $_SESSION['user_name'] = $result['name'];
-        $_SESSION['user_email'] = $result['email'];
+        $_SESSION['user_id'] = $user->getId();
+        $_SESSION['user_name'] = $user->getName();
+        $_SESSION['user_email'] = $user->getEmail();
         $_SESSION['last_login'] = date('Y-m-d H:i:s');
 
         if ($remember) {
@@ -122,9 +113,9 @@ class AuthController extends AbstractController
             return;
         }
 
-        $userId = $this->authService->register($name, $email, $password);
+        $user = $this->authService->register($name, $email, $password);
 
-        if (!$userId) {
+        if (!$user) {
             $this->render('auth/register', [
                 'error' => 'Пользователь с таким email уже существует',
                 'name' => $name,
@@ -134,9 +125,9 @@ class AuthController extends AbstractController
         }
 
         session_regenerate_id(true);
-        $_SESSION['user_id'] = $userId;
-        $_SESSION['user_name'] = $name;
-        $_SESSION['user_email'] = $email;
+        $_SESSION['user_id'] = $user->getId();
+        $_SESSION['user_name'] = $user->getName();
+        $_SESSION['user_email'] = $user->getEmail();
         $_SESSION['last_login'] = date('Y-m-d H:i:s');
 
         $this->redirect('/');

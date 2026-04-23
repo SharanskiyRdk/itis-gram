@@ -101,3 +101,5 @@ CREATE TABLE admins (
 CREATE INDEX idx_users_verified ON users(is_verified_student);
 CREATE INDEX idx_support_tickets_status ON support_tickets(status);
 CREATE INDEX idx_support_tickets_user_id ON support_tickets(user_id);
+
+ALTER TABLE dialogues ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;

@@ -1,7 +1,16 @@
 <?php
-// templates/chat/_chat_content.php
+// Временный фикс
+if (!isset($dialogue) && isset($dialogue_id)) {
+    $dialogueObj = \App\Models\Dialogue::find($dialogue_id);
+    if ($dialogueObj) {
+        $dialogue = [
+                'type' => $dialogueObj->getType(),
+                'title' => $dialogueObj->getTitle(),
+        ];
+    }
+}
 ?>
-<input type="hidden" name="dialogue_id" value="<?= $dialogue_id ?>">
+<input type="hidden" name="dialogue_id" value="<?= htmlspecialchars($dialogue_id) ?>">
 
 <!-- Шапка чата -->
 <div class="chat-header">
