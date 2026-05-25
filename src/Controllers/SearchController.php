@@ -2,41 +2,39 @@
 
 namespace App\Controllers;
 
-use App\Core\Database;
+use App\Repositories\UserRepository;
+use App\Repositories\DialogueRepository;
+use App\Repositories\MessageRepository;
+use App\Routing\Attributes\Route;
 
 class SearchController extends AbstractController
 {
-    private Database $db;
+    private UserRepository $users;
+    private DialogueRepository $dialogues;
+    private MessageRepository $messages;
 
     public function __construct()
     {
-        $this->db = Database::getInstance();
+        $this->users = new UserRepository();
+        $this->dialogues = new DialogueRepository();
+        $this->messages = new MessageRepository();
     }
 
+    #[Route('/search/users', 'GET')]
     public function users(): void
     {
         $this->requireAuth();
 
-        $q = trim((string)($_GET['q'] ?? ''));
+        $q = trim((string)$this->queryParam('q', ''));
 
         $users = [];
 
         if ($q !== '' && mb_strlen($q) <= 100) {
-            $sql = "SELECT id, name, email, avatar, is_online 
-                    FROM users 
-                    WHERE (name ILIKE :q OR email ILIKE :q) 
-                    AND id != :user_id 
-                    AND is_deleted = FALSE
-                    LIMIT 20";
-
-            $users = $this->db->fetchAll($sql, [
-                'q' => "%$q%",
-                'user_id' => $this->currentUserId()
-            ]);
+            $users = $this->users->searchUsers($q, $this->currentUserId());
         }
 
-        // Если AJAX запрос
-        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+
+        if ($this->isAjaxRequest()) {
             $this->json(['users' => $users]);
             return;
         }
@@ -44,30 +42,28 @@ class SearchController extends AbstractController
         $this->render('search/users', ['q' => $q, 'users' => $users]);
     }
 
+    #[Route('/search/users/chat', 'POST')]
     public function createChat(): void
     {
         $this->verifyCsrf();
         $this->requireAuth();
 
-        $userId = (int)($_POST['user_id'] ?? 0);
+        $userId = (int)$this->bodyParam('user_id', 0);
 
         if ($userId <= 0 || $userId === $this->currentUserId()) {
             $this->json(['error' => 'Некорректный пользователь'], 400);
             return;
         }
 
-        // Проверяем существование пользователя
-        $user = $this->db->fetchOne(
-            "SELECT id FROM users WHERE id = :id AND is_deleted = FALSE",
-            ['id' => $userId]
-        );
+
+        $user = $this->users->findById($userId);
 
         if (!$user) {
             $this->json(['error' => 'Пользователь не найден'], 404);
             return;
         }
 
-        // Проверяем существующий диалог
+
         $sql = "SELECT d.id FROM dialogues d
                 INNER JOIN dialogue_users du1 ON d.id = du1.dialogue_id
                 INNER JOIN dialogue_users du2 ON d.id = du2.dialogue_id
@@ -75,48 +71,29 @@ class SearchController extends AbstractController
                 AND du1.user_id = :user1 
                 AND du2.user_id = :user2";
 
-        $existing = $this->db->fetchOne($sql, [
-            'user1' => $this->currentUserId(),
-            'user2' => $userId
-        ]);
+        $existing = $this->dialogues->findExistingPrivateDialogue($this->currentUserId(), $userId);
 
         if ($existing) {
             $this->json(['success' => true, 'dialogue_id' => $existing['id']]);
             return;
         }
 
-        // Создаем новый диалог
-        $this->db->beginTransaction();
 
-        try {
-            $this->db->execute(
-                "INSERT INTO dialogues (type, created_at, updated_at) VALUES ('private', NOW(), NOW())"
-            );
-            $dialogueId = $this->db->lastInsertId();
+        $dialogueId = $this->dialogues->createPrivateDialogue($this->currentUserId(), $userId);
 
-            $this->db->execute(
-                "INSERT INTO dialogue_users (dialogue_id, user_id, joined_at) VALUES (:dialogue_id, :user_id, NOW())",
-                ['dialogue_id' => $dialogueId, 'user_id' => $this->currentUserId()]
-            );
-            $this->db->execute(
-                "INSERT INTO dialogue_users (dialogue_id, user_id, joined_at) VALUES (:dialogue_id, :user_id, NOW())",
-                ['dialogue_id' => $dialogueId, 'user_id' => $userId]
-            );
-
-            $this->db->commit();
-
+        if ($dialogueId) {
             $this->json(['success' => true, 'dialogue_id' => $dialogueId]);
-        } catch (\Exception $e) {
-            $this->db->rollBack();
+        } else {
             $this->json(['error' => 'Не удалось создать чат'], 500);
         }
     }
 
+    #[Route('/search/messages', 'GET')]
     public function messages(): void
     {
         $this->requireAuth();
 
-        $q = trim((string)($_GET['q'] ?? ''));
+        $q = trim((string)$this->queryParam('q', ''));
 
         if ($q === '' || mb_strlen($q) > 100) {
             $this->json(['messages' => []]);
@@ -134,10 +111,7 @@ class SearchController extends AbstractController
                 ORDER BY m.created_at DESC
                 LIMIT 50";
 
-        $messages = $this->db->fetchAll($sql, [
-            'user_id' => $this->currentUserId(),
-            'q' => "%$q%"
-        ]);
+        $messages = $this->messages->searchMessages($this->currentUserId(), $q);
 
         $this->json(['messages' => $messages]);
     }

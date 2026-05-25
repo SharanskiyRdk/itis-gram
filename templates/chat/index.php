@@ -26,7 +26,7 @@ $user = $_SESSION;
                     </svg>
                 </div>
 
-                <div class="menu-item" onclick="openModal('friends-modal')" title="Друзья">
+                <div class="menu-item" onclick="toggleFriendsOnly()" id="friends-toggle" title="Друзья">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                         <circle cx="9" cy="7" r="4"/>
@@ -35,11 +35,6 @@ $user = $_SESSION;
                     </svg>
                 </div>
 
-                <div class="menu-item" onclick="openModal('favorites-modal')" title="Избранное">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    </svg>
-                </div>
             </div>
 
             <div class="menu-bottom">
@@ -87,32 +82,41 @@ $user = $_SESSION;
                     </div>
                 <?php else: ?>
                     <?php foreach ($dialogues as $dialogue): ?>
-                        <div class="chat-item" data-chat-id="<?= $dialogue['id'] ?>">
+                        <?php
+                        $isPrivate = ($dialogue['type'] ?? 'private') === 'private';
+                        $displayTitle = (string)($dialogue['display_title'] ?? $dialogue['title'] ?? 'Чат');
+                        $displayAvatar = (string)($dialogue['display_avatar'] ?? '');
+                        $lastMessage = trim((string)($dialogue['last_message'] ?? ''));
+                        $lastMessageUserId = (int)($dialogue['last_message_user_id'] ?? 0);
+                        $lastMessagePreview = $lastMessage !== ''
+                            ? ($lastMessageUserId === currentUserId() ? 'Вы: ' . $lastMessage : $lastMessage)
+                            : 'Новый чат';
+                        ?>
+                        <div class="chat-item" data-chat-id="<?= $dialogue['id'] ?>" data-has-friend="<?= !empty($dialogue['has_friend']) ? '1' : '0' ?>" data-dialogue-type="<?= htmlspecialchars($dialogue['type'] ?? 'private') ?>">
                             <div class="chat-avatar">
-                                <?php if ($dialogue['type'] === 'group'): ?>
+                                <?php if ($displayAvatar !== ''): ?>
+                                    <img src="<?= htmlspecialchars($displayAvatar) ?>" alt="<?= htmlspecialchars($displayTitle) ?>">
+                                <?php elseif ($dialogue['type'] === 'group'): ?>
                                     <div class="avatar-placeholder group-avatar">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
                                             <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                                         </svg>
                                     </div>
-                                <?php else:
-                                    // Для личного чата пытаемся получить имя собеседника
-                                    $otherUserName = $dialogue['title'] ?? 'Чат';
-                                    ?>
+                                <?php else: ?>
                                     <div class="avatar-placeholder" style="background: #667eea">
-                                        <?= mb_substr($otherUserName, 0, 1) ?>
+                                        <?= mb_substr($displayTitle, 0, 1) ?>
                                     </div>
                                 <?php endif; ?>
                             </div>
                             <div class="chat-info">
                                 <div class="chat-name">
-                                    <span><?= htmlspecialchars($dialogue['title'] ?? ($otherUserName ?? 'Личный чат')) ?></span>
+                                    <span><?= htmlspecialchars($displayTitle) ?></span>
                                     <?php if (!empty($dialogue['last_message_time'])): ?>
                                         <span class="chat-time"><?= date('H:i', strtotime($dialogue['last_message_time'])) ?></span>
                                     <?php endif; ?>
                                 </div>
                                 <div class="chat-last-message">
-                                    <?= htmlspecialchars(mb_substr($dialogue['last_message'] ?? 'Новый чат', 0, 50)) ?>
+                                    <?= htmlspecialchars(mb_substr($lastMessagePreview, 0, 70)) ?>
                                 </div>
                             </div>
                         </div>
@@ -156,6 +160,18 @@ $user = $_SESSION;
         </div>
     </div>
 
+    <div id="user-card-modal" class="modal">
+        <div class="modal-content modal-content--card" id="user-card-modal-content">
+            <div class="modal-header">
+                <h3>Информация о пользователе</h3>
+                <div class="modal-close">&times;</div>
+            </div>
+            <div class="modal-body">
+                <div class="user-card-placeholder">Выберите пользователя в чате</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Модальное окно создания чата -->
     <div id="new-chat-modal" class="modal">
         <div class="modal-content">
@@ -183,32 +199,85 @@ $user = $_SESSION;
 
     <!-- Модальное окно настроек -->
     <div id="settings-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-content--settings">
             <div class="modal-header">
                 <h3>Настройки</h3>
                 <div class="modal-close">&times;</div>
             </div>
-            <div class="modal-body">
-                <div class="settings-item" style="cursor: pointer; margin-bottom: 8px;" onclick="window.location.href='/profile'">
-                    <span>✏️ Редактировать профиль</span>
+            <div class="modal-body settings-panel">
+                <div class="settings-profile-card">
+                    <div class="settings-profile-card__avatar">
+                        <?php if (!empty($user['avatar'])): ?>
+                            <img src="<?= htmlspecialchars($user['avatar']) ?>" alt="Avatar">
+                        <?php else: ?>
+                            <div class="avatar-placeholder" style="background: #667eea">
+                                <?= mb_substr($user['user_name'] ?? 'U', 0, 1) ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="settings-profile-card__info">
+                        <div class="settings-profile-card__name"><?= htmlspecialchars($user['user_name'] ?? '') ?></div>
+                        <div class="settings-profile-card__meta"><?= htmlspecialchars($user['user_email'] ?? '') ?></div>
+                        <?php if (!empty($user['student_group'])): ?>
+                            <div class="settings-profile-card__meta">Группа: <?= htmlspecialchars($user['student_group']) ?></div>
+                        <?php endif; ?>
+                    </div>
                 </div>
-                <div class="settings-item" style="margin-bottom: 8px;">
-                    <span>🔔 Уведомления и звуки</span>
-                </div>
-                <div class="settings-item" style="margin-bottom: 8px;">
-                    <span>🔒 Конфиденциальность</span>
-                </div>
-                <div class="settings-item" style="margin-bottom: 8px;">
-                    <span>🌐 Язык</span>
-                </div>
-                <div class="settings-item">
-                    <span>❓ Связаться с поддержкой</span>
+
+                <div class="settings-list">
+                    <a class="settings-item settings-item--link" href="/profile">✏️ Редактировать профиль</a>
+                    <button type="button" class="settings-item" onclick="toast.show('Здесь будут уведомления и звуки', 'success')">🔔 Уведомления и звуки</button>
+                    <button type="button" class="settings-item" onclick="toast.show('Здесь будут настройки конфиденциальности', 'success')">🔒 Конфиденциальность</button>
+                    <button type="button" class="settings-item" onclick="toast.show('Языки: рус/eng будут подключены отдельно', 'success')">🌐 Язык</button>
+                    <a class="settings-item settings-item--link" href="/profile#support">❓ Задать вопрос в поддержку</a>
                 </div>
             </div>
         </div>
     </div>
 
     <style>
+        .modal-content--settings {
+            max-width: 520px;
+        }
+        .settings-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .settings-profile-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px;
+            border-radius: 18px;
+            background: #f6f7fb;
+        }
+        .settings-profile-card__avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .settings-profile-card__avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .settings-profile-card__name {
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .settings-profile-card__meta {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .settings-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
         .tab-btn {
             padding: 8px 16px;
             background: #363740;
@@ -227,9 +296,17 @@ $user = $_SESSION;
             background: #363740;
             transition: background 0.2s;
             cursor: pointer;
+            text-align: left;
+            border: none;
+            color: white;
+            font: inherit;
+            text-decoration: none;
         }
         .settings-item:hover {
             background: #3e4049;
+        }
+        .settings-item--link {
+            display: block;
         }
         .search-input:focus {
             outline: none;
@@ -318,7 +395,7 @@ $user = $_SESSION;
                 const result = await response.json();
                 if (result.success) {
                     closeModal('new-chat-modal');
-                    window.location.href = `/chat?id=${result.dialogue_id}`;
+                    window.location.href = `/?id=${result.dialogue_id}`;
                 } else {
                     toast.show(result.error || 'Ошибка', 'error');
                 }
@@ -341,12 +418,9 @@ $user = $_SESSION;
         const chatsSearch = document.getElementById('chats-search');
         if (chatsSearch) {
             chatsSearch.addEventListener('input', function() {
-                const query = this.value.toLowerCase();
-                document.querySelectorAll('.chat-item').forEach(item => {
-                    const name = item.querySelector('.chat-name span')?.textContent.toLowerCase() || '';
-                    const lastMsg = item.querySelector('.chat-last-message')?.textContent.toLowerCase() || '';
-                    item.style.display = name.includes(query) || lastMsg.includes(query) ? 'flex' : 'none';
-                });
+                if (typeof window.applyChatFilters === 'function') {
+                    window.applyChatFilters();
+                }
             });
         }
     </script>

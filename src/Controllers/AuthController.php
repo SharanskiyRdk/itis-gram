@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Routing\Attributes\Route;
 use App\Services\AuthService;
 use JetBrains\PhpStorm\NoReturn;
 
@@ -14,15 +15,15 @@ class AuthController extends AbstractController
         $this->authService = new AuthService();
     }
 
+    #[Route('/login', 'GET')]
     public function loginForm(): void
     {
         if ($this->currentUserId()) {
             $this->redirect('/');
         }
 
-        // Пытаемся восстановить сессию
-        $sessionId = $_COOKIE['session_id'] ?? '';
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $sessionId = (string)$this->cookieParam('session_id', '');
+        $ip = (string)$this->serverParam('REMOTE_ADDR', '');
 
         if ($sessionId) {
             $restoredUser = $this->authService->restoreSession($sessionId, $ip);
@@ -41,13 +42,14 @@ class AuthController extends AbstractController
         $this->render('auth/login');
     }
 
+    #[Route('/login', 'POST')]
     public function login(): void
     {
         $this->verifyCsrf();
 
-        $email = trim((string)($_POST['email'] ?? ''));
-        $password = (string)($_POST['password'] ?? '');
-        $remember = isset($_POST['remember']);
+        $email = trim((string)$this->bodyParam('email', ''));
+        $password = (string)$this->bodyParam('password', '');
+        $remember = (bool)$this->bodyParam('remember', false);
 
         $errors = $this->validateLogin($email, $password);
 
@@ -60,7 +62,7 @@ class AuthController extends AbstractController
         }
 
         $sessionId = bin2hex(random_bytes(32));
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $ip = (string)$this->serverParam('REMOTE_ADDR', '');
 
         $user = $this->authService->authenticate($email, $password, $sessionId, $ip);
 
@@ -85,6 +87,7 @@ class AuthController extends AbstractController
         $this->redirect('/');
     }
 
+    #[Route('/register', 'GET')]
     public function registerForm(): void
     {
         if ($this->currentUserId()) {
@@ -94,13 +97,14 @@ class AuthController extends AbstractController
         $this->render('auth/register');
     }
 
+    #[Route('/register', 'POST')]
     public function register(): void
     {
         $this->verifyCsrf();
 
-        $name = trim((string)($_POST['name'] ?? ''));
-        $email = trim((string)($_POST['email'] ?? ''));
-        $password = (string)($_POST['password'] ?? '');
+        $name = trim((string)$this->bodyParam('name', ''));
+        $email = trim((string)$this->bodyParam('email', ''));
+        $password = (string)$this->bodyParam('password', '');
 
         $errors = $this->validateRegistration($name, $email, $password);
 
@@ -134,12 +138,13 @@ class AuthController extends AbstractController
     }
 
     #[NoReturn]
+    #[Route('/logout', 'POST')]
     public function logout(): void
     {
         $this->verifyCsrf();
 
         if ($this->currentUserId()) {
-            $this->authService->logout($this->currentUserId(), $_COOKIE['session_id'] ?? '');
+            $this->authService->logout($this->currentUserId(), (string)$this->cookieParam('session_id', ''));
         }
 
         $_SESSION = [];

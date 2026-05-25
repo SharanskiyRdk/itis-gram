@@ -17,7 +17,7 @@
                             <?php if (!empty($user['avatar'])): ?>
                                 <img src="<?= htmlspecialchars($user['avatar']) ?>" alt="Аватар" width="50" height="50">
                             <?php else: ?>
-                                <img src="/images/avatar-placeholder.png" alt="Аватар" width="50" height="50">
+                                <img src="/images/avatar-placeholder.svg" alt="Аватар" width="50" height="50">
                             <?php endif; ?>
                         </div>
                         <div class="user-card__info">
@@ -160,7 +160,7 @@
                         <div class="user-card__avatar">
                             ${user.avatar
                     ? `<img src="${escapeHtml(user.avatar)}" alt="Аватар" width="50" height="50">`
-                    : `<img src="/images/avatar-placeholder.png" alt="Аватар" width="50" height="50">`
+                            : `<img src="/images/avatar-placeholder.svg" alt="Аватар" width="50" height="50">`
                 }
                         </div>
                         <div class="user-card__info">
@@ -210,7 +210,7 @@
                     const result = await response.json();
 
                     if (result.success) {
-                        window.location.href = `/chat?id=${result.dialogue_id}`;
+                        window.location.href = `/?id=${result.dialogue_id}`;
                     } else {
                         toast.show(result.error || 'Не удалось создать чат', 'error');
                         btn.disabled = false;

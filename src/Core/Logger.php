@@ -2,8 +2,10 @@
 
 namespace App\Core;
 
-class Logger {
-    public static function error(string $message): void {
+class Logger
+{
+    public static function error(string $message): void
+    {
         $logDir = __DIR__ . '/../../runtime/logs';
         $logFile = $logDir . '/app.log';
 

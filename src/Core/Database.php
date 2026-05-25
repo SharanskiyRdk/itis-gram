@@ -1,5 +1,5 @@
 <?php
-// App/Core/Database.php
+
 namespace App\Core;
 
 use App\Exceptions\DatabaseException;
@@ -37,7 +37,7 @@ class Database
         $password = $this->config->get('DB_PASSWORD', '');
 
         try {
-            $dsn = match($driver) {
+            $dsn = match ($driver) {
                 'pgsql' => "pgsql:host=$host;port=$port;dbname=$dbname",
                 'sqlite' => "sqlite:" . __DIR__ . "/../../database/{$dbname}.sqlite",
                 default => throw new \Exception("Unsupported driver: $driver")
@@ -50,7 +50,7 @@ class Database
             ]);
         } catch (PDOException $e) {
             LoggerService::getInstance()->error("Database connection failed: " . $e->getMessage());
-            throw new DatabaseException("Database connection failed", $e->getCode(), $e);
+            throw new DatabaseException("Database connection failed", ['code' => $e->getCode()], $e);
         }
     }
 
@@ -115,10 +115,19 @@ class Database
 
             if ($className) {
                 $stmt->setFetchMode(PDO::FETCH_CLASS, $className);
-                return $stmt->fetch();
+                $res = $stmt->fetch();
+                if ($res === false) {
+                    return null;
+                }
+                return $res;
             }
 
-            return $stmt->fetch();
+            $res = $stmt->fetch();
+            if ($res === false) {
+                return null;
+            }
+
+            return $res;
         } catch (PDOException $e) {
             LoggerService::getInstance()->error("FetchOne failed: " . $e->getMessage(), ['sql' => $sql]);
             throw new DatabaseException("FetchOne failed", ['sql' => $sql], $e);

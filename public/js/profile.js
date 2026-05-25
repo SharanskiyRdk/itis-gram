@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    // Модальные окна
+    
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) modal.classList.add('active');
@@ -10,6 +10,21 @@
     function closeModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) modal.classList.remove('active');
+    }
+
+    function applyAvatarUrl(avatarUrl) {
+        const cacheBustedUrl = `${avatarUrl}${avatarUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
+
+        document.querySelectorAll('#avatar-img, .menu-avatar img').forEach(img => {
+            img.src = cacheBustedUrl;
+        });
+
+        document.querySelectorAll('#profile-avatar, .menu-avatar').forEach(container => {
+            const placeholder = container.querySelector('.avatar-placeholder');
+            if (!placeholder) return;
+
+            placeholder.outerHTML = `<img src="${cacheBustedUrl}" alt="Аватар">`;
+        });
     }
 
     window.openModal = openModal;
@@ -29,6 +44,8 @@
 
     const editProfileBtn = document.getElementById('edit-profile-btn');
     const editProfileForm = document.getElementById('edit-profile-form');
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsCards = document.querySelectorAll('[data-settings-action]');
 
     if (editProfileBtn) {
         editProfileBtn.addEventListener('click', () => openModal('edit-profile-modal'));
@@ -88,7 +105,10 @@
                 const result = await response.json();
                 if (result.success) {
                     toast.show('Аватар обновлён', 'success');
-                    setTimeout(() => location.reload(), 1000);
+                    if (result.avatar_url) {
+                        applyAvatarUrl(result.avatar_url);
+                    }
+                    avatarInput.value = '';
                 } else {
                     toast.show(result.error, 'error');
                 }
@@ -144,6 +164,24 @@
     if (supportBtn) {
         supportBtn.addEventListener('click', () => openModal('support-modal'));
     }
+
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', () => openModal('settings-modal'));
+    }
+
+    settingsCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const action = card.dataset.settingsAction;
+            if (action === 'profile') {
+                closeModal('settings-modal');
+                openModal('edit-profile-modal');
+            }
+            if (action === 'support') {
+                closeModal('settings-modal');
+                openModal('support-modal');
+            }
+        });
+    });
 
     if (ticketForm) {
         ticketForm.addEventListener('submit', async (e) => {

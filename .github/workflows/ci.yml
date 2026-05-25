@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo, pdo_pgsql, fileinfo
+      - name: Get Composer Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+      - name: Install dependencies
+        run: composer install --no-progress --no-interaction --prefer-dist
+      - name: Run phpcs (PSR-12)
+        run: ./vendor/bin/phpcs --standard=PSR12 src || true
+      - name: Run tests
+        run: ./vendor/bin/phpunit --configuration phpunit.xml --verbose

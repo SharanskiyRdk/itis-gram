@@ -1,5 +1,5 @@
 <?php
-// App/Services/AuthService.php
+
 namespace App\Services;
 
 use App\Models\User;
@@ -56,14 +56,13 @@ class AuthService
         return null;
     }
 
-    // AuthService.php
     public function logout(int $userId, string $sessionId): void
     {
-        // Очищаем сессию в БД
-        $this->db->execute(
-            "UPDATE users SET session_id = NULL, session_ip = NULL, is_online = FALSE, last_seen = NOW() WHERE id = :id",
-            ['id' => $userId]
-        );
+            $this->db->execute(
+                'UPDATE users SET session_id = NULL, session_ip = NULL, is_online = FALSE, '
+                . 'last_seen = NOW() WHERE id = :id',
+                ['id' => $userId]
+            );
     }
 
     public function restoreSession(string $sessionId, string $ip): ?User

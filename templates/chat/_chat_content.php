@@ -4,24 +4,38 @@ if (!isset($dialogue) && isset($dialogue_id)) {
     $dialogueObj = \App\Models\Dialogue::find($dialogue_id);
     if ($dialogueObj) {
         $dialogue = [
-                'type' => $dialogueObj->getType(),
-                'title' => $dialogueObj->getTitle(),
+            'type' => $dialogueObj->getType(),
+            'title' => $dialogueObj->getTitle(),
+            'group_code' => $dialogueObj->getGroupCode(),
+            'avatar' => $dialogueObj->getAvatar(),
         ];
     }
 }
+
+$isGroup = ($dialogue['type'] ?? '') === 'group';
+$membersCount = $membersCount ?? 0;
+$canManageGroup = $canManageGroup ?? false;
+$participants = $participants ?? [];
+$groupTitleLocked = $groupTitleLocked ?? false;
+$isBlocked = $isBlocked ?? false;
+$blockState = $blockState ?? ['blocked_by_me' => false, 'blocked_by_other' => false, 'partner_id' => null];
 ?>
 <input type="hidden" name="dialogue_id" value="<?= htmlspecialchars($dialogue_id) ?>">
 
 <!-- Шапка чата -->
 <div class="chat-header">
-    <div class="chat-header-info" onclick="goToProfile(<?= $otherUser['id'] ?? 0 ?>)">
+    <div class="chat-header-info<?= $isGroup ? ' chat-header-info--group' : '' ?>"<?= $isGroup ? ' onclick="openGroupInfo()"' : ' onclick="goToProfile(' . (int)($otherUser['id'] ?? 0) . ')"' ?>>
         <div class="chat-header-avatar">
-            <?php if ($dialogue['type'] === 'group'): ?>
-                <div class="avatar-placeholder group-avatar" style="background: #667eea; display: flex; align-items: center; justify-content: center;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                    </svg>
-                </div>
+            <?php if ($isGroup): ?>
+                <?php if (!empty($dialogue['avatar'])): ?>
+                    <img src="<?= htmlspecialchars($dialogue['avatar']) ?>" alt="<?= htmlspecialchars($dialogue['title'] ?? 'Группа') ?>">
+                <?php else: ?>
+                    <div class="avatar-placeholder group-avatar" style="background: #667eea; display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </svg>
+                    </div>
+                <?php endif; ?>
             <?php else: ?>
                 <?php if (!empty($otherUser['avatar'])): ?>
                     <img src="<?= htmlspecialchars($otherUser['avatar']) ?>" alt="<?= htmlspecialchars($otherUser['name']) ?>">
@@ -35,8 +49,8 @@ if (!isset($dialogue) && isset($dialogue_id)) {
         <div class="chat-header-details">
             <h3><?= htmlspecialchars($dialogue['title'] ?? ($otherUser['name'] ?? 'Чат')) ?></h3>
             <p class="<?= ($otherUser['is_online'] ?? false) ? 'online' : '' ?>">
-                <?php if ($dialogue['type'] === 'group'): ?>
-                    Участников: <?= $dialogue['members_count'] ?? 0 ?>
+                <?php if ($isGroup): ?>
+                    <?= !empty($dialogue['group_code']) ? 'Группа: ' . htmlspecialchars($dialogue['group_code']) . ' · ' : '' ?>Участников: <?= (int)$membersCount ?>
                 <?php else: ?>
                     <?= ($otherUser['is_online'] ?? false) ? 'Онлайн' : 'Был(а) ' . date('d.m.Y H:i', strtotime($otherUser['last_seen'] ?? 'now')) ?>
                 <?php endif; ?>
@@ -52,115 +66,176 @@ if (!isset($dialogue) && isset($dialogue_id)) {
             </svg>
         </div>
         <div class="dropdown-menu" id="chat-dropdown">
-            <div class="dropdown-item" onclick="goToProfile(<?= $otherUser['id'] ?? 0 ?>)">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                </svg>
-                <span>Профиль</span>
-            </div>
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-item" onclick="clearChat()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M3 6h18M8 6V4h8v2"/>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-                </svg>
-                <span>Очистить чат</span>
-            </div>
-            <div class="dropdown-item danger" onclick="blockUser()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                </svg>
-                <span>Заблокировать</span>
-            </div>
-            <div class="dropdown-item danger" onclick="blockAndClear()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <path d="M3 6h18M8 6V4h8v2"/>
-                </svg>
-                <span>Заблокировать и очистить</span>
-            </div>
+            <?php if (!$isGroup): ?>
+                <div class="dropdown-item" onclick="goToProfile(<?= $otherUser['id'] ?? 0 ?>)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <span>Профиль</span>
+                </div>
+                <div class="dropdown-divider"></div>
+            <?php else: ?>
+                <div class="dropdown-divider"></div>
+            <?php endif; ?>
+            <?php if (!$isGroup): ?>
+                <div class="dropdown-item" onclick="clearChat('me')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M3 6h18M8 6V4h8v2"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                    </svg>
+                    <span>Очистить чат у меня</span>
+                </div>
+                <div class="dropdown-item" onclick="clearChat('all')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M3 6h18M8 6V4h8v2"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                    </svg>
+                    <span>Очистить чат у всех</span>
+                </div>
+                <?php if (!empty($blockState['blocked_by_me'])): ?>
+                    <div class="dropdown-item" onclick="unblockUser()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M8 12h8"/>
+                        </svg>
+                        <span>Разблокировать</span>
+                    </div>
+                <?php else: ?>
+                    <div class="dropdown-item danger" onclick="blockUser()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                        </svg>
+                        <span>Заблокировать</span>
+                    </div>
+                    <div class="dropdown-item danger" onclick="blockAndClear()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <path d="M3 6h18M8 6V4h8v2"/>
+                        </svg>
+                        <span>Заблокировать и очистить</span>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
         </div>
     </div>
 </div>
 
-<!-- Сообщения -->
-<div class="messages-container" id="messages-container">
-    <div class="messages-list" id="messages-list">
-        <?php if (!empty($messages)): ?>
-            <?php
-            $lastDate = '';
-            foreach ($messages as $message):
-                $messageDate = date('Y-m-d', strtotime($message['created_at']));
-                $displayDate = '';
-                if ($lastDate !== $messageDate) {
-                    $lastDate = $messageDate;
-                    $timestamp = strtotime($message['created_at']);
-                    if (date('Y-m-d') === $messageDate) {
-                        $displayDate = 'Сегодня';
-                    } elseif (date('Y-m-d', strtotime('-1 day')) === $messageDate) {
-                        $displayDate = 'Вчера';
-                    } else {
-                        $displayDate = date('d.m.Y', $timestamp);
-                    }
-                }
-                ?>
-                <?php if ($displayDate): ?>
-                <div class="date-divider"><span><?= $displayDate ?></span></div>
-            <?php endif; ?>
-                <div class="message <?= $message['user_id'] == currentUserId() ? 'message--out' : 'message--in' ?>">
-                    <?php if ($message['user_id'] != currentUserId()): ?>
-                        <div class="message-avatar" onclick="goToProfile(<?= $message['user_id'] ?>)">
-                            <?php if (!empty($message['avatar'])): ?>
-                                <img src="<?= htmlspecialchars($message['avatar']) ?>" alt="<?= htmlspecialchars($message['user_name']) ?>">
-                            <?php else: ?>
-                                <div class="avatar-placeholder small" style="background: #667eea; font-size: 14px;">
-                                    <?= mb_substr($message['user_name'], 0, 1) ?>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
-                    <div class="message-content">
-                        <?php if ($message['user_id'] != currentUserId()): ?>
-                            <div class="message-sender"><?= htmlspecialchars($message['user_name']) ?></div>
+<?php if ($isGroup): ?>
+    <div id="group-info-modal" class="modal">
+        <div class="modal-content modal-content--members modal-content--group-info">
+            <div class="modal-header">
+                <h3>Группа</h3>
+                <div class="modal-close">&times;</div>
+            </div>
+            <div class="modal-body group-info-layout">
+                <div class="group-info-header">
+                    <div class="group-info-header__avatar">
+                        <?php if (!empty($dialogue['avatar'])): ?>
+                            <img src="<?= htmlspecialchars($dialogue['avatar']) ?>" alt="<?= htmlspecialchars($dialogue['title'] ?? 'Группа') ?>">
+                        <?php else: ?>
+                            <div class="group-avatar-preview__placeholder"><?= mb_substr($dialogue['title'] ?? 'G', 0, 1) ?></div>
                         <?php endif; ?>
-                        <div class="message-bubble">
-                            <div class="message-text"><?= nl2br(htmlspecialchars($message['content'])) ?></div>
-                            <div class="message-meta">
-                                <span class="message-time"><?= date('H:i', strtotime($message['created_at'])) ?></span>
-                                <?php if ($message['user_id'] == currentUserId()): ?>
-                                    <span class="message-status">✓✓</span>
-                                <?php endif; ?>
-                            </div>
+                    </div>
+                    <div class="group-info-header__meta">
+                        <div class="group-info-header__title"><?= htmlspecialchars($dialogue['title'] ?? 'Группа') ?></div>
+                        <div class="group-info-header__subtitle">
+                            <?= !empty($dialogue['group_code']) ? 'Группа: ' . htmlspecialchars($dialogue['group_code']) : 'Академическая группа' ?>
                         </div>
+                        <div class="group-info-header__subtitle">Участников: <?= (int)$membersCount ?></div>
                     </div>
                 </div>
-            <?php endforeach; ?>
-        <?php else: ?>
-            <div style="text-align: center; padding: 40px; color: #65676b;">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
-                <p style="margin-top: 16px;">Нет сообщений</p>
-                <span>Напишите первое сообщение</span>
+
+                <div class="group-info-sections">
+                    <?php if ($canManageGroup): ?>
+                        <section class="group-info-section">
+                            <div class="group-info-section__title">Настройки группы</div>
+                            <form id="group-settings-form" class="group-settings-form">
+                                <input type="hidden" name="dialogue_id" value="<?= htmlspecialchars($dialogue_id) ?>">
+                                <div class="form-group">
+                                    <label>Название группы</label>
+                                    <?php if ($groupTitleLocked): ?>
+                                        <input type="text" value="<?= htmlspecialchars($dialogue['title'] ?? '') ?>" readonly>
+                                        <div class="form-hint">Название академической группы нельзя изменять.</div>
+                                    <?php else: ?>
+                                        <input type="text" name="title" value="<?= htmlspecialchars($dialogue['title'] ?? '') ?>" placeholder="Название группы">
+                                    <?php endif; ?>
+                                </div>
+                                <div class="form-group">
+                                    <label>Фото группы</label>
+                                    <div class="group-avatar-preview">
+                                        <?php if (!empty($dialogue['avatar'])): ?>
+                                            <img src="<?= htmlspecialchars($dialogue['avatar']) ?>" alt="Group avatar">
+                                        <?php else: ?>
+                                            <div class="group-avatar-preview__placeholder"><?= mb_substr($dialogue['title'] ?? 'G', 0, 1) ?></div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp">
+                                </div>
+                                <button type="submit" class="btn" style="width: 100%;">Сохранить</button>
+                            </form>
+                        </section>
+                    <?php endif; ?>
+
+                    <section class="group-info-section">
+                        <div class="group-info-section__title">Участники</div>
+                        <div class="group-members-list">
+                            <?php foreach ($participants as $participant): ?>
+                                <div class="group-member-card">
+                                    <div class="group-member-card__avatar" onclick="openUserCard(<?= (int)$participant['id'] ?>)">
+                                        <?php if (!empty($participant['avatar'])): ?>
+                                            <img src="<?= htmlspecialchars($participant['avatar']) ?>" alt="<?= htmlspecialchars($participant['name']) ?>">
+                                        <?php else: ?>
+                                            <div class="avatar-placeholder small" style="background: #667eea; font-size: 14px;">
+                                                <?= mb_substr($participant['name'] ?? '?', 0, 1) ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="group-member-card__info">
+                                        <div class="group-member-card__name"><?= htmlspecialchars($participant['name']) ?></div>
+                                        <div class="group-member-card__meta">
+                                            <?= !empty($participant['student_group']) ? htmlspecialchars($participant['student_group']) : 'Участник группы' ?>
+                                        </div>
+                                    </div>
+                                    <?php if ((int)$participant['id'] !== currentUserId()): ?>
+                                        <button type="button" class="group-member-card__action" onclick="startPrivateChat(<?= (int)$participant['id'] ?>)">Написать</button>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </section>
+                </div>
             </div>
-        <?php endif; ?>
+        </div>
     </div>
+<?php endif; ?>
+
+<!-- Сообщения -->
+<div class="messages-container" id="messages-container">
+    <?php require __DIR__ . '/_messages.php'; ?>
 </div>
 
+<?php if (!$isGroup && $isBlocked): ?>
+    <div class="chat-blocked-notice">
+        <?= !empty($blockState['blocked_by_me']) ? 'Чат заблокирован. Сначала разблокируйте пользователя.' : 'Этот пользователь заблокировал вас. Отправка сообщений недоступна.' ?>
+    </div>
+<?php endif; ?>
+
 <!-- Ввод сообщения -->
-<div class="chat-input-area">
-    <button class="attach-btn" id="attach-btn" title="Прикрепить">
+<div class="chat-input-area<?= (!$isGroup && $isBlocked) ? ' chat-input-area--blocked' : '' ?>" data-blocked="<?= (!$isGroup && $isBlocked) ? '1' : '0' ?>">
+    <button type="button" class="attach-btn" id="attach-btn" title="Прикрепить"<?= (!$isGroup && $isBlocked) ? ' disabled' : '' ?>>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
         </svg>
     </button>
     <div class="input-wrapper">
-        <textarea id="message-input" placeholder="Сообщение..." rows="1"></textarea>
+        <textarea id="message-input" placeholder="<?= (!$isGroup && $isBlocked) ? 'Чат заблокирован' : 'Сообщение...' ?>" rows="1"<?= (!$isGroup && $isBlocked) ? ' disabled' : '' ?>></textarea>
+        <input type="file" id="message-attach-input" class="message-attach-input" accept="image/*,video/mp4,video/webm,video/quicktime,audio/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+
     </div>
-    <button class="send-btn" id="send-btn" title="Отправить">
+    <button type="button" class="send-btn" id="send-btn" title="Отправить" onclick="sendChatMessage()"<?= (!$isGroup && $isBlocked) ? ' disabled' : '' ?>>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="22" y1="2" x2="11" y2="13"/>
             <polygon points="22 2 15 22 11 13 2 9 22 2"/>

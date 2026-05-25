@@ -230,10 +230,10 @@ class ErrorHandler
             <div class="error-message"><?= htmlspecialchars($message) ?></div>
             <a href="/" class="btn">Вернуться на главную</a>
 
-            <?php if ($this->debugMode && !empty($context)): ?>
+            <?php if ($this->debugMode && !empty($context)) : ?>
                 <div class="error-debug">
                     <strong>Debug Information:</strong><br><br>
-                    <?php foreach ($context as $key => $value): ?>
+                    <?php foreach ($context as $key => $value) : ?>
                         <strong><?= htmlspecialchars($key) ?>:</strong> <?= htmlspecialchars((string)$value) ?><br>
                     <?php endforeach; ?>
                 </div>

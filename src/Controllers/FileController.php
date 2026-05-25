@@ -2,8 +2,11 @@
 
 namespace App\Controllers;
 
+use App\Routing\Attributes\Route;
+
 class FileController extends AbstractController
 {
+    #[Route('/file/upload', 'POST')]
     public function upload(): void
     {
         $this->verifyCsrf();
@@ -17,12 +20,14 @@ class FileController extends AbstractController
         echo 'Файл загружен';
     }
 
+    #[Route('/file/download', 'GET')]
     public function download(): void
     {
         $this->requireAuth();
         echo 'Скачивание файла';
     }
 
+    #[Route('/file/delete', 'POST')]
     public function delete(): void
     {
         $this->verifyCsrf();

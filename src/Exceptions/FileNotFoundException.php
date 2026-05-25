@@ -2,5 +2,6 @@
 
 namespace App\Exceptions;
 
-class FileNotFoundException extends AppException {
+class FileNotFoundException extends AppException
+{
 }

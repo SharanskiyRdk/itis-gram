@@ -2,7 +2,7 @@
 
 namespace App\Controllers;
 
-use App\Core\Database;
+use App\Routing\Attributes\Route;
 use App\Services\ProfileService;
 use JetBrains\PhpStorm\NoReturn;
 
@@ -15,11 +15,13 @@ class ProfileController extends AbstractController
         $this->profileService = new ProfileService();
     }
 
+    #[Route('/profile', 'GET')]
     public function show(): void
     {
         $this->requireAuth();
 
         $user = $this->profileService->getUser($this->currentUserId());
+        $isAdmin = $user ? $user->isAdmin() : false;
 
         $tickets = $this->profileService->getUserTickets($this->currentUserId());
 
@@ -32,42 +34,27 @@ class ProfileController extends AbstractController
             ];
         }
 
-        // Статистика
-        $stats = $this->getUserStats($this->currentUserId());
+        $stats = $this->profileService->getUserStats($this->currentUserId());
 
-        if (!$stats) {
-            $stats = [
-                'messages' => 0,
-                'dialogues' => 0
+        $adminStats = null;
+        if ($isAdmin) {
+            $db = \App\Core\Database::getInstance();
+            $adminStats = [
+                'users' => (int)($db->fetchOne('SELECT COUNT(*) AS c FROM users WHERE is_deleted = FALSE')['c'] ?? 0),
+                'tickets_open' => (int)($db->fetchOne("SELECT COUNT(*) AS c FROM support_tickets WHERE status = 'open'")['c'] ?? 0),
+                'groups' => (int)($db->fetchOne("SELECT COUNT(*) AS c FROM dialogues WHERE type = 'group' AND is_deleted = FALSE")['c'] ?? 0),
             ];
         }
 
         $this->render('profile/show', [
             'user' => $user,
+            'isAdmin' => $isAdmin,
             'tickets' => $tickets,
             'verificationStatus' => $verificationStatus,
-            'stats' => $stats
+            'stats' => $stats,
+            'studentGroup' => $user ? $user->getStudentGroup() : null,
+            'adminStats' => $adminStats,
         ]);
-    }
-
-    private function getUserStats(int $userId): array
-    {
-        $db = Database::getInstance();
-
-        $messagesCount = $db->fetchOne(
-            "SELECT COUNT(*) as count FROM messages WHERE user_id = :user_id AND is_deleted = FALSE",
-            ['user_id' => $userId]
-        );
-
-        $dialoguesCount = $db->fetchOne(
-            "SELECT COUNT(*) as count FROM dialogue_users WHERE user_id = :user_id",
-            ['user_id' => $userId]
-        );
-
-        return [
-            'messages' => $messagesCount['count'] ?? 0,
-            'dialogues' => $dialoguesCount['count'] ?? 0
-        ];
     }
 
     public function edit(): void
@@ -78,13 +65,14 @@ class ProfileController extends AbstractController
     }
 
     #[NoReturn]
+    #[Route('/profile/update', 'POST')]
     public function update(): void
     {
         $this->verifyCsrf();
         $this->requireAuth();
 
-        $name = trim((string)($_POST['name'] ?? ''));
-        $bio = trim((string)($_POST['bio'] ?? ''));
+        $name = trim((string)$this->bodyParam('name', ''));
+        $bio = trim((string)$this->bodyParam('bio', ''));
 
         if ($name === '' || mb_strlen($name) > 100) {
             $this->json(['error' => 'Некорректное имя'], 422);
@@ -107,19 +95,33 @@ class ProfileController extends AbstractController
     }
 
     #[NoReturn]
+    #[Route('/profile/avatar', 'POST')]
     public function avatar(): void
     {
         $this->verifyCsrf();
         $this->requireAuth();
 
-        if (!isset($_FILES['avatar']) || !is_array($_FILES['avatar'])) {
+        $avatarFile = $this->uploadedFileParam('avatar');
+
+        if (!$avatarFile) {
             $this->json(['error' => 'Файл не передан'], 400);
             return;
         }
 
-        $avatarPath = $this->profileService->updateAvatar($this->currentUserId(), $_FILES['avatar']);
+        try {
+            $avatarPath = $this->profileService->updateAvatar($this->currentUserId(), $avatarFile);
+        } catch (\Throwable $e) {
+            \App\Services\LoggerService::getInstance()->error('Avatar upload failed', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            $this->json(['error' => 'Не удалось загрузить аватар'], 500);
+            return;
+        }
 
         if ($avatarPath) {
+            $_SESSION['avatar'] = $avatarPath;
             $this->json(['success' => true, 'avatar_url' => $avatarPath]);
         } else {
             $this->json(['error' => 'Не удалось загрузить аватар'], 422);
@@ -127,23 +129,28 @@ class ProfileController extends AbstractController
     }
 
     #[NoReturn]
+    #[Route('/profile/avatar/delete', 'POST')]
     public function deleteAvatar(): void
     {
         $this->verifyCsrf();
         $this->requireAuth();
 
         $result = $this->profileService->deleteAvatar($this->currentUserId());
+        if ($result) {
+            $_SESSION['avatar'] = null;
+        }
         $this->json(['success' => $result]);
     }
 
     #[NoReturn]
+    #[Route('/profile/support', 'POST')]
     public function support(): void
     {
         $this->verifyCsrf();
         $this->requireAuth();
 
-        $subject = trim((string)($_POST['subject'] ?? ''));
-        $message = trim((string)($_POST['message'] ?? ''));
+        $subject = trim((string)$this->bodyParam('subject', ''));
+        $message = trim((string)$this->bodyParam('message', ''));
 
         if ($subject === '' || mb_strlen($subject) > 255) {
             $this->json(['error' => 'Некорректная тема'], 422);
@@ -152,6 +159,17 @@ class ProfileController extends AbstractController
 
         if ($message === '' || mb_strlen($message) > 2000) {
             $this->json(['error' => 'Некорректное сообщение'], 422);
+            return;
+        }
+
+        $db = \App\Core\Database::getInstance();
+        $exists = $db->fetchOne('SELECT id FROM support_tickets WHERE user_id = :uid AND subject = :subject LIMIT 1', [
+            'uid' => $this->currentUserId(),
+            'subject' => $subject
+        ]);
+
+        if ($exists) {
+            $this->json(['error' => 'Вы уже отправляли обращение с такой темой'], 409);
             return;
         }
 
@@ -165,15 +183,28 @@ class ProfileController extends AbstractController
     }
 
     #[NoReturn]
+    #[Route('/profile/verify-request', 'POST')]
     public function verifyRequest(): void
     {
         $this->verifyCsrf();
         $this->requireAuth();
 
-        $studentGroup = trim((string)($_POST['student_group'] ?? ''));
+        $studentGroup = trim((string)$this->bodyParam('student_group', ''));
 
         if ($studentGroup === '' || mb_strlen($studentGroup) > 50) {
             $this->json(['error' => 'Некорректный номер группы'], 422);
+            return;
+        }
+
+        $subject = 'Запрос на подтверждение статуса студента ИТИС';
+        $db = \App\Core\Database::getInstance();
+        $exists = $db->fetchOne('SELECT id FROM support_tickets WHERE user_id = :uid AND subject = :subject LIMIT 1', [
+            'uid' => $this->currentUserId(),
+            'subject' => $subject
+        ]);
+
+        if ($exists) {
+            $this->json(['error' => 'Вы уже отправляли запрос на подтверждение'], 409);
             return;
         }
 
@@ -184,5 +215,50 @@ class ProfileController extends AbstractController
         } else {
             $this->json(['error' => 'Не удалось отправить запрос'], 500);
         }
+    }
+
+    #[NoReturn]
+    #[Route('/profile/card', 'GET')]
+    public function card(): void
+    {
+        $this->requireAuth();
+
+        $userId = (int)$this->queryParam('user_id', 0);
+        if ($userId <= 0) {
+            $this->json(['error' => 'Некорректный пользователь'], 422);
+            return;
+        }
+
+        $card = $this->profileService->getProfileCardData($this->currentUserId(), $userId);
+        if (!$card) {
+            $this->json(['error' => 'Пользователь не найден'], 404);
+            return;
+        }
+
+        $this->json(['success' => true, 'card' => $card]);
+    }
+
+    #[NoReturn]
+    #[Route('/profile/friend-toggle', 'POST')]
+    public function friendToggle(): void
+    {
+        $this->verifyCsrf();
+        $this->requireAuth();
+
+        $userId = (int)$this->bodyParam('user_id', 0);
+        if ($userId <= 0) {
+            $this->json(['error' => 'Некорректный пользователь'], 422);
+            return;
+        }
+
+        $result = $this->profileService->toggleFriendship($this->currentUserId(), $userId);
+        if (!empty($result['success'])) {
+            $this->json($result);
+            return;
+        }
+
+        $payload = $result;
+        $payload['error'] = $result['message'] ?? 'Не удалось обновить друзей';
+        $this->json($payload, 500);
     }
 }

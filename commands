@@ -1,0 +1,9 @@
+migration: psql -U postgres -d itisgram -f migration.no-create.sql
+
+server start: php -S 127.0.0.1:8238 -t public
+
+create database: createdb -U postgres itisgram
+
+drop database: dropdb -U postgres itisgram
+
+tests: vendor/bin/phpunit --coverage-text

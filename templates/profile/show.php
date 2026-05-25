@@ -7,6 +7,9 @@ $user = $user ?? null;
 $tickets = $tickets ?? [];
 $verificationStatus = $verificationStatus ?? ['is_verified' => false, 'student_group' => null];
 $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
+$studentGroup = $studentGroup ?? ($verificationStatus['student_group'] ?? null);
+$isAdmin = $isAdmin ?? false;
+$adminStats = $adminStats ?? null;
 
 ?>
     <div class="profile-container">
@@ -16,7 +19,7 @@ $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
                     <?php if ($user && $user->getAvatar()): ?>
                         <img src="<?= htmlspecialchars($user->getAvatar()) ?>" alt="Аватар" id="avatar-img">
                     <?php else: ?>
-                        <img src="/images/avatar-placeholder.png" alt="Аватар" id="avatar-img">
+                        <img src="/images/avatar-placeholder.svg" alt="Аватар" id="avatar-img">
                     <?php endif; ?>
                     <div class="avatar-overlay">
                         <span>Изменить</span>
@@ -50,6 +53,13 @@ $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
                     <?php if ($user && $user->getBio()): ?>
                         <div class="bio"><?= nl2br(htmlspecialchars($user->getBio())) ?></div>
                     <?php endif; ?>
+
+                    <?php if (!empty($studentGroup)): ?>
+                        <div class="group-chip">
+                            <span class="group-chip__label">Академическая группа</span>
+                            <strong><?= htmlspecialchars($studentGroup) ?></strong>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -69,18 +79,54 @@ $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
             </div>
 
             <div class="profile-actions">
-                <button class="btn btn-outline" id="edit-profile-btn">✏️ Редактировать профиль</button>
-                <button class="btn btn-outline" id="support-btn">💬 Поддержка</button>
-                <a href="/settings" class="btn btn-outline">⚙️ Настройки</a>
+                <button class="profile-action profile-action--primary" id="edit-profile-btn">✏️ Редактировать</button>
+                <button class="profile-action" id="support-btn">💬 Поддержка</button>
+                <button class="profile-action profile-action--ghost" id="settings-btn">⚙️ Настройки</button>
+                <?php if ($isAdmin): ?>
+                    <a href="/admin" class="profile-action profile-action--admin">🛠 Панель администратора</a>
+                <?php endif; ?>
             </div>
         </div>
+
+        <?php if ($isAdmin && !empty($adminStats)): ?>
+            <div class="admin-panel-head">
+                <p class="admin-panel-kicker">ADMIN INFO</p>
+            </div>
+
+            <div class="admin-panel-stats">
+                <div class="admin-panel-stat">
+                    <strong><?= (int)$adminStats['users'] ?></strong>
+                    <span>Пользователи</span>
+                </div>
+
+                <div class="admin-panel-stat">
+                    <strong><?= (int)$adminStats['tickets_open'] ?></strong>
+                    <span>Открытые тикеты</span>
+                </div>
+
+                <div class="admin-panel-stat">
+                    <strong><?= (int)$adminStats['groups'] ?></strong>
+                    <span>Групповые чаты</span>
+                </div>
+            </div>
+
+            <div class="admin-panel-actions">
+                <a href="/admin/users" class="profile-mini-link">
+                    👥 Пользователи
+                </a>
+
+                <a href="/admin/tickets" class="profile-mini-link">
+                    🎫 Обращения
+                </a>
+            </div>
+        <?php endif; ?>
 
         <?php if (!empty($tickets)): ?>
             <div class="profile-card">
                 <h3 style="margin-bottom: 16px;">Мои обращения</h3>
                 <div class="tickets-list">
                     <?php foreach ($tickets as $ticket): ?>
-                        <div class="ticket-item">
+                                    <div class="ticket-item" data-ticket-id="<?= htmlspecialchars($ticket['id']) ?>" data-admin-response="<?= htmlspecialchars($ticket['admin_response'] ?? '') ?>" data-status="<?= htmlspecialchars($ticket['status'] ?? 'open') ?>">
                             <div class="ticket-header">
                                 <span class="ticket-subject"><?= htmlspecialchars($ticket['subject'] ?? '') ?></span>
                                 <span class="ticket-status status-<?= htmlspecialchars($ticket['status'] ?? 'open') ?>">
@@ -98,7 +144,7 @@ $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
                                 <?= date('d.m.Y H:i', strtotime($ticket['created_at'] ?? 'now')) ?>
                             </div>
                             <?php if (!empty($ticket['admin_response'])): ?>
-                                <div class="ticket-response">
+                                <div class="ticket-response" style="display:none">
                                     <strong>Ответ администратора:</strong><br>
                                     <?= nl2br(htmlspecialchars($ticket['admin_response'])) ?>
                                 </div>
@@ -177,8 +223,69 @@ $stats = $stats ?? ['messages' => 0, 'dialogues' => 0];
         </div>
     </div>
 
+    <!-- Модальное окно настроек -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content modal-content--wide">
+            <div class="modal-header">
+                <h3>Настройки профиля</h3>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="settings-grid">
+                    <button class="settings-card" data-settings-action="profile">
+                        <span class="settings-card__icon">✏️</span>
+                        <span class="settings-card__title">Профиль</span>
+                        <span class="settings-card__text">Имя, аватар и описание</span>
+                    </button>
+                    <button class="settings-card" data-settings-action="notifications">
+                        <span class="settings-card__icon">🔔</span>
+                        <span class="settings-card__title">Уведомления</span>
+                        <span class="settings-card__text">Тихие часы и звуки</span>
+                    </button>
+                    <button class="settings-card" data-settings-action="privacy">
+                        <span class="settings-card__icon">🔒</span>
+                        <span class="settings-card__title">Приватность</span>
+                        <span class="settings-card__text">Кто видит профиль</span>
+                    </button>
+                    <button class="settings-card" data-settings-action="support">
+                        <span class="settings-card__icon">💬</span>
+                        <span class="settings-card__title">Поддержка</span>
+                        <span class="settings-card__text">Создать обращение</span>
+                    </button>
+                </div>
+                <div class="settings-note">
+                    Дополнительные настройки откроем следующим шагом и привяжем к реальным действиям.
+                </div>
+            </div>
+        </div>
+    </div>
+
     <link rel="stylesheet" href="/css/profile.css">
     <script src="/js/profile.js"></script>
+    <script>
+        // Show ticket response in modal when clicking a ticket
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.ticket-item').forEach(function(el) {
+                el.addEventListener('click', function() {
+                    const resp = el.dataset.adminResponse || '';
+                    const status = el.dataset.status || 'open';
+                    if (resp.trim() !== '') {
+                        // reuse support modal to show response
+                        const modal = document.createElement('div');
+                        modal.className = 'modal active';
+                        modal.innerHTML = `
+                            <div class="modal-content">
+                                <div class="modal-header"><h3>Ответ по обращению</h3><span class="modal-close">&times;</span></div>
+                                <div class="modal-body"><p>${resp.replace(/\n/g, '<br>')}</p><p style="margin-top:12px;font-size:13px;color:#666">Статус: ${status}</p></div>
+                            </div>`;
+                        document.body.appendChild(modal);
+                        modal.querySelector('.modal-close').addEventListener('click', function(){ modal.remove(); });
+                        modal.addEventListener('click', function(e){ if (e.target === modal) modal.remove(); });
+                    }
+                });
+            });
+        });
+    </script>
 
 <?php
 $content = ob_get_clean();

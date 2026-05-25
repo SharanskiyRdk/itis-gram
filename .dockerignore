@@ -1,0 +1,11 @@
+vendor/
+.env
+runtime/logs/
+public/uploads/
+public/images/avatar-placeholder.png
+.git/
+.idea/
+.vscode/
+tmp/
+temp/
+*.log

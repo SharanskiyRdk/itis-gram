@@ -22,7 +22,7 @@ class LoggerService
         $format = "[%datetime%] %level_name%: %message% %context% %extra%\n";
         $formatter = new LineFormatter($format, 'Y-m-d H:i:s', true, true);
 
-        // Лог в файл - всегда
+
         $logFile = __DIR__ . '/../../runtime/logs/app.log';
         $logDir = dirname($logFile);
         if (!is_dir($logDir)) {
@@ -33,7 +33,7 @@ class LoggerService
         $fileHandler->setFormatter($formatter);
         $this->logger->pushHandler($fileHandler);
 
-        // В режиме debug - вывод в браузерную консоль
+
         if ($this->debugMode) {
             $consoleHandler = new BrowserConsoleHandler();
             $consoleHandler->setFormatter($formatter);
